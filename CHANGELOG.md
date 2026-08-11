@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-10
+
+KV helpers, memory helpers (dual_write **OFF** by default), and connectorsdk — wire parity with Go `iomeshclient` / `connectorsdk` (stdlib only).
+
+### Added
+
+- **KV** — `create_bucket` / `ensure_bucket` (`POST /v1/kv/{name}`; 409 → name-only `BucketInfo`), `put` (`PUT` base64 value → `PutResult`), `get` (base64 decode with graceful fallback), `delete`, `list_keys` (`?prefix=`)
+- **Memory helpers** — `MemoryEnvelope`, `publish_memory_ingest` → stream `MEMORY_INGEST` subject `{tenant}.memory.ingest.turn`, `ingest_memory_turn` (`POST /v1` then `/v5/memory/ingest`), `dual_write_memory_turn(*, sync=False)` dual_write **OFF** by default (async-only); sync path fail-open (`sync_err`, no raise on sync fail), thin `retrieve_memory` (`/v1` then `/v5/memory/retrieve`)
+- **connectorsdk** — `compute_hmac_sha256` / `verify_hmac` (`sha256=` default prefix), subject builders (`subject_for_department|document|embedding|warehouse|metric`), `normalize_envelope` + `publish_headers` (uuid4 correlation when `external_id` empty)
+- **Types** — `BucketInfo`, `KVEntry`, `PutResult`, `CreateBucketConfig`, `MemoryEnvelope`, `DualWriteMemoryResult`, `MemoryIngestResponse`, `MemoryRetrieveRequest` / `MemoryRetrieveResponse`, …
+- **Tests** — `test_kv.py`, `test_memory.py`, `test_connectorsdk.py` (mock HTTP broker)
+- **User-Agent** — `iomesh-client-sdk-python/0.2.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- dual_write **OFF** by default on `dual_write_memory_turn` (`sync=False`) — optional audit when `sync=True`
+- Kafka Produce, full multi-hop related / ops_digest, wait-ready, PyPI publish: residual **Next**
+
 ## [0.1.0] — 2026-08-10
 
 Initial public release: official MIT Python edge client for the I/O Mesh broker HTTP plane (**Beta** / pre-1.0).

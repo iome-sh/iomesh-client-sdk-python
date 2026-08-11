@@ -1,0 +1,290 @@
+"""Memory helpers — dual_write OFF default, publish ingest, sync fail-open."""
+
+from __future__ import annotations
+
+import base64
+import json
+import threading
+from collections.abc import Callable
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Optional
+from urllib.parse import unquote
+
+import pytest
+
+from iomeshclient import (
+    ClientError,
+    ConnectOptions,
+    MemoryEntityRef,
+    MemoryEnvelope,
+    MemoryRetrieveRequest,
+    connect,
+)
+
+
+class _BrokerState:
+    def __init__(self) -> None:
+        self.requests: list[dict[str, Any]] = []
+        self.handler: Optional[Callable[[Any], tuple[int, bytes, dict[str, str]]]] = None
+
+
+def _make_handler(state: _BrokerState) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+        def _handle(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(length) if length else b""
+            headers = {k.lower(): v for k, v in self.headers.items()}
+            path_only, _, qs = self.path.partition("?")
+            rec = {
+                "method": self.command,
+                "path": unquote(path_only),
+                "query": qs,
+                "headers": headers,
+                "body": body,
+            }
+            state.requests.append(rec)
+            if state.handler is None:
+                self.send_response(404)
+                self.end_headers()
+                return
+            status, payload, extra_headers = state.handler(rec)
+            self.send_response(status)
+            for k, v in (extra_headers or {}).items():
+                self.send_header(k, v)
+            if payload is not None and status != 204:
+                if "Content-Type" not in (extra_headers or {}):
+                    self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            if payload and status != 204:
+                self.wfile.write(payload)
+
+        def do_GET(self) -> None:
+            self._handle()
+
+        def do_POST(self) -> None:
+            self._handle()
+
+    return Handler
+
+
+@pytest.fixture
+def broker():
+    state = _BrokerState()
+    server = HTTPServer(("127.0.0.1", 0), _make_handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+
+    class Ctx:
+        def set_handler(self, fn):
+            state.handler = fn
+
+        @property
+        def url(self):
+            return base
+
+        @property
+        def requests(self):
+            return state.requests
+
+    try:
+        yield Ctx()
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_publish_memory_ingest(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["path"] == "/v1/streams/MEMORY_INGEST/publish"
+        body = json.loads(rec["body"].decode())
+        assert body["subject"] == "dept.research.memory.ingest.turn"
+        payload = json.loads(base64.b64decode(body["payload"]))
+        assert payload["type"] == "memory_ingest"
+        assert payload["content"] == "sdk ingest smoke"
+        assert payload["role"] == "assistant"
+        assert payload["session_id"] == "sess-1"
+        assert payload["event_time"] == "2026-07-13T12:00:00Z"
+        assert payload["session_seq"] == 3
+        assert payload["entity_refs"] == [{"type": "ticket", "id": "JIRA-100"}]
+        return 200, json.dumps(
+            {"stream": "MEMORY_INGEST", "seq": 7, "subject": body["subject"]}
+        ).encode(), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    ack = nc.publish_memory_ingest(
+        "dept.research",
+        MemoryEnvelope(
+            role="assistant",
+            content="sdk ingest smoke",
+            session_id="sess-1",
+            event_time="2026-07-13T12:00:00Z",
+            session_seq=3,
+            entity_refs=[MemoryEntityRef(type="ticket", id="JIRA-100")],
+        ),
+    )
+    assert ack.seq == 7
+    assert ack.stream == "MEMORY_INGEST"
+
+
+def test_publish_memory_ingest_validation() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
+    with pytest.raises(ClientError, match="tenant_id required"):
+        nc.publish_memory_ingest("", MemoryEnvelope(content="x"))
+    with pytest.raises(ClientError, match="content required"):
+        nc.publish_memory_ingest("dept.x", MemoryEnvelope())
+
+
+def test_dual_write_default_async_only(broker) -> None:
+    published = {"n": 0}
+    sync_hits = {"n": 0}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/streams/MEMORY_INGEST/publish":
+            published["n"] += 1
+            return 200, json.dumps({"stream": "MEMORY_INGEST", "seq": 1}).encode(), {}
+        if "memory/ingest" in rec["path"]:
+            sync_hits["n"] += 1
+            return 200, json.dumps({"status": "ok"}).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    # default sync=False — dual_write OFF
+    res = nc.dual_write_memory_turn(
+        "dept.x",
+        MemoryEnvelope(role="user", content="note", session_id="s1"),
+    )
+    assert res.async_ack is not None and res.async_ack.seq == 1
+    assert res.sync is None
+    assert res.sync_err is None
+    assert published["n"] == 1
+    assert sync_hits["n"] == 0
+
+
+def test_dual_write_sync_true(broker) -> None:
+    async_hits = {"n": 0}
+    sync_hits = {"n": 0}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/streams/MEMORY_INGEST/publish":
+            async_hits["n"] += 1
+            return 200, json.dumps({"stream": "MEMORY_INGEST", "seq": 3}).encode(), {}
+        if rec["path"] == "/v1/memory/ingest":
+            sync_hits["n"] += 1
+            body = json.loads(rec["body"].decode())
+            assert body["tenant_id"] == "dept.x"
+            assert body["content"] == "dual"
+            assert body["type"] == "memory_ingest"
+            return 200, json.dumps({"status": "ok", "memory_id": "m1"}).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    res = nc.dual_write_memory_turn(
+        "dept.x",
+        MemoryEnvelope(role="assistant", content="dual", session_id="s2"),
+        sync=True,
+    )
+    assert res.async_ack is not None and res.async_ack.seq == 3
+    assert res.sync is not None and res.sync.memory_id == "m1"
+    assert res.sync_err is None
+    assert async_hits["n"] == 1 and sync_hits["n"] == 1
+
+
+def test_dual_write_sync_fail_open(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/streams/MEMORY_INGEST/publish":
+            return 200, json.dumps({"stream": "MEMORY_INGEST", "seq": 2}).encode(), {}
+        # no sync ingest routes
+        return 404, b"missing", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    res = nc.dual_write_memory_turn(
+        "dept.x",
+        MemoryEnvelope(content="x"),
+        sync=True,
+    )
+    assert res.async_ack is not None and res.async_ack.seq == 2
+    assert res.sync is None
+    assert res.sync_err is not None  # fail-open
+
+
+def test_ingest_memory_turn_v1_then_v5(broker) -> None:
+    paths: list[str] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        paths.append(rec["path"])
+        if rec["path"] == "/v1/memory/ingest":
+            return 404, b"not found", {}
+        if rec["path"] == "/v5/memory/ingest":
+            body = json.loads(rec["body"].decode())
+            assert body["tenant_id"] == "dept.research"
+            assert body["event_time"] == "2026-07-13T15:00:00Z"
+            assert body["session_seq"] == 4
+            return 200, json.dumps(
+                {"status": "ok", "memory_id": "mem-99", "tier": 1, "ingested": 1}
+            ).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.ingest_memory_turn(
+        "dept.research",
+        MemoryEnvelope(
+            role="assistant",
+            content="noted lease rotation",
+            session_id="sess-1",
+            event_time="2026-07-13T15:00:00Z",
+            session_seq=4,
+        ),
+    )
+    assert resp.memory_id == "mem-99"
+    assert resp.ingested == 1
+    assert paths == ["/v1/memory/ingest", "/v5/memory/ingest"]
+
+
+def test_retrieve_memory_thin(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/memory/retrieve":
+            return 404, b"{}", {}
+        if rec["path"] == "/v5/memory/retrieve":
+            body = json.loads(rec["body"].decode())
+            assert body["tenant_id"] == "dept.research"
+            assert body["query"] == "lease rotation"
+            assert body["type"] == "memory_recall"
+            return 200, json.dumps(
+                {
+                    "memories": [
+                        {
+                            "id": "mem-1",
+                            "summary": "lease rotation",
+                            "full": "lease rotation due Q3",
+                            "score": 0.91,
+                            "session_seq": 3,
+                        }
+                    ]
+                }
+            ).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.retrieve_memory(
+        MemoryRetrieveRequest(
+            tenant_id="dept.research",
+            query="lease rotation",
+            limit=5,
+            session_id="sess-1",
+        )
+    )
+    assert resp.path == "/v5/memory/retrieve"
+    assert len(resp.memories) == 1
+    assert resp.memories[0].id == "mem-1"
+    assert resp.memories[0].score == 0.91

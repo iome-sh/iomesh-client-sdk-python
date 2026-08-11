@@ -10,20 +10,23 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.1) | Notes |
+| Capability (v0.2) | Notes |
 |-------------------|--------|
 | `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
 | Streams: create / ensure / get / list / delete | 409 conflict → best-effort GET |
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads |
+| **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
+| **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, thin `retrieve_memory` |
+| **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
 | Health / ready | `GET /health`, `GET /ready` then `/readyz` |
 
-Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) core HTTP plane. Python v0.1 does **not** yet ship KV helpers, memory helpers, connectorsdk, or Kafka Produce.
+Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk). Residual **Next**: Kafka Produce, full related/ops_digest, wait-ready, PyPI.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.1.0`  
-> **Status:** public OSS **v0.1.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.2.0`  
+> **Status:** public OSS **v0.2.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -92,7 +95,68 @@ python examples/org_heartbeat_publish.py
 IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 ```
 
-Needs a local/stage broker. Offline stage smoke ≠ live APPLY. `dual_write` is not claimed.
+Needs a local/stage broker. Offline stage smoke ≠ live APPLY.
+
+## KV
+
+```python
+from iomeshclient import CreateBucketConfig
+
+nc.create_bucket("agent-state", CreateBucketConfig(history=5))  # 409 → name-only OK
+nc.put("agent-state", "worker-1.checkpoint", b"seq=42")
+entry = nc.get("agent-state", "worker-1.checkpoint")
+print(entry.revision, entry.value)
+keys = nc.list_keys("agent-state", prefix="worker")
+nc.delete("agent-state", "worker-1.checkpoint")
+```
+
+## Memory helpers (dual_write OFF by default)
+
+Async local-primary path publishes to `MEMORY_INGEST`. **dual_write is OFF by default** — `sync=False` means no sync sidecar call.
+
+```python
+from iomeshclient import MemoryEnvelope
+
+env = MemoryEnvelope(role="user", content="lease rotation due Q3", session_id="sess-1")
+
+# Async only (default dual_write OFF)
+res = nc.dual_write_memory_turn("dept.research", env)
+print(res.async_ack.seq)
+
+# Optional audit dual-write (fail-open on sync errors)
+res = nc.dual_write_memory_turn("dept.research", env, sync=True)
+if res.sync_err:
+    print("sync failed open:", res.sync_err)
+elif res.sync:
+    print("sync memory_id", res.sync.memory_id)
+```
+
+Honesty: not freemium palace · not product Memory GA · not control-plane GA.
+
+## connectorsdk
+
+Partner webhook helpers (HMAC + subjects + observation envelope):
+
+```python
+from iomeshclient.connectorsdk import (
+    DEFAULT_HMAC_PREFIX,
+    compute_hmac_sha256,
+    normalize_envelope,
+    publish_headers,
+    subject_for_department,
+    verify_hmac,
+)
+
+verify_hmac(secret, body, signature)  # raises on mismatch
+subj = subject_for_department("engineering", "slack")  # dept.engineering.events.slack
+payload = normalize_envelope(
+    "slack", "engineering", "slack",
+    external_id="Ev001", event_type="message",
+    event={"text": "hello"},
+)
+headers = publish_headers("slack", "engineering", "Ev001", "slack")
+nc.publish("EVENTS", subj, payload, headers=headers)
+```
 
 ## Pull consume
 
@@ -126,15 +190,15 @@ nc.ready()   # GET /ready, then /readyz if 404
 
 - **MIT edge client only** — not freemium palace access, not control-plane GA.
 - **Beta / pre-1.0** — APIs may change before 1.0.
-- **No Memory GA invent** — this release is core HTTP (streams / publish / pull / health).
-- **dual_write not claimed** — examples do not assert dual-write or hosted memory.
+- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync.
+- **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
 - **Requires a broker** — unit tests mock HTTP; live examples need local/stage mesh.
 
 ## Related
 
 | Project | Role |
 |---------|------|
-| [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go) | Official Go client (broader surface: KV, memory helpers, connectorsdk, Kafka Produce) |
+| [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go) | Official Go client (broader surface: related/ops_digest, Kafka Produce, …) |
 | [iomesh-tui](https://github.com/iome-sh/iomesh-tui) | Agent TUI |
 | [iome.sh](https://iome.sh) | Product home |
 
