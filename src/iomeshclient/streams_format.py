@@ -1,20 +1,23 @@
-"""Stream format helpers — pure operator/CLI views (no network I/O).
+"""Stream / message / consumer format helpers — pure operator/CLI views (no network I/O).
 
 Wire parity with Go ``iomeshclient`` streams_format.go:
 
 - ``format_streams`` compact table (name, msgs, subjects)
 - ``format_stream_detail`` multi-line single-stream view
+- ``format_msg`` / ``format_msgs`` fetched message views
+- ``format_consumer_info`` multi-line durable consumer detail
 
 Honesty: MIT edge · Beta · operator diagnostics formatters · not product GA.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from .client import StreamInfo
+    from .client import ConsumerInfo, Msg, StreamInfo
 
 
 def format_streams(streams: list[StreamInfo]) -> str:
@@ -88,6 +91,49 @@ def format_stream_detail(s: StreamInfo) -> str:
                 lines.append(f"  … +{len(subjects) - 24} more")
                 break
             lines.append(f"  - {sub}")
+    return "\n".join(lines) + "\n"
+
+
+def format_msg(m: Optional[Msg]) -> str:
+    """Compact one-line view for a fetched message (Go FormatMsg).
+
+    Pure helper with no network I/O. None → ``iomesh msg (nil)``.
+    """
+    if m is None:
+        return "iomesh msg (nil)\n"
+    data = getattr(m, "data", None)
+    nbytes = len(data) if isinstance(data, (bytes, bytearray)) else 0
+    return f"iomesh msg seq={m.seq} subject={m.subject} bytes={nbytes}\n"
+
+
+def format_msgs(msgs: Optional[Sequence[Optional[Msg]]]) -> str:
+    """Render multiple fetched messages for operator logs (Go FormatMsgs).
+
+    Pure helper with no network I/O. None/empty → ``iomesh msgs count=0``;
+    otherwise a count header plus one ``format_msg`` line per element.
+    """
+    if msgs is None:
+        msgs = []
+    lines = [f"iomesh msgs count={len(msgs)}"]
+    for m in msgs:
+        # format_msg always ends with \n; strip trailing for join, re-add at end
+        lines.append(format_msg(m).rstrip("\n"))
+    return "\n".join(lines) + "\n"
+
+
+def format_consumer_info(info: ConsumerInfo) -> str:
+    """Multi-line view for one durable consumer (Go FormatConsumerInfo).
+
+    Pure helper with no network I/O. Always emits filter_subject (empty when unset).
+    """
+    lines = [
+        "iomesh consumer",
+        f"stream:          {info.stream}",
+        f"name:            {info.name}",
+        f"ack_floor:       {getattr(info, 'ack_floor', 0) or 0}",
+        f"pending_count:   {getattr(info, 'pending_count', 0) or 0}",
+        f"filter_subject:  {getattr(info, 'filter_subject', '') or ''}",
+    ]
     return "\n".join(lines) + "\n"
 
 

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-08-11
+
+Operator diagnostics residual polish — KV + message/consumer format helpers, thin stream replay (`list_stream_messages`); wire parity with Go `FormatPutResult` / `FormatBucketInfo` / `FormatKVEntry` / `FormatKVKeys` / `FormatMsg` / `FormatMsgs` / `FormatConsumerInfo` / `ListStreamMessages` (stdlib only, pure formatters).
+
+### Added
+
+- **KV formatters** — `format_put_result`, `format_bucket_info` (always-emit history/max_bytes/ttl_seconds blanks), `format_kv_entry` (always-emit created_at; printable UTF-8 vs binary hex preview), `format_kv_keys` (cap 50)
+- **Message / consumer formatters** — `format_msg` / `format_msgs` (nil → `(nil)`; empty batch `count=0` header OK), `format_consumer_info` (always-emit filter_subject)
+- **`list_stream_messages(stream, opts?)`** — `GET /v1/streams/{name}/messages`; `ListStreamMessagesOptions` (from_seq/to_seq/limit defaults 1/0/100, limit cap 1000); `StreamMessage` with base64 payload soft-fallback
+- **ConsumerInfo knobs** — `ack_floor`, `pending_count`, `filter_subject` decoded from create/ensure wire for formatters
+- **Tests** — `test_kv_format.py`, `test_msg_format.py`, list_stream_messages mock HTTP
+- **User-Agent** — `iomesh-client-sdk-python/0.6.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- Format helpers are **operator diagnostics** only · dual_write **OFF** by default elsewhere · Kafka Produce subset only
+- `list_stream_messages` is explicit discovery (non-2xx → `APIError`), not fail-open
+
 ## [0.5.0] — 2026-08-10
 
 Context plane + operator diagnostics formatters (residual polish) — wire parity with Go `QueryContext` / `ContextSnippet` / `FormatStreams` / `FormatStreamDetail` / `ConnectionStatus` (stdlib only, fail-open).

@@ -123,7 +123,7 @@ def test_connection_status_health_and_ready_ok(broker) -> None:
     assert s.ready_ok and s.ready_err == ""
     assert s.health_ms >= 0 and s.ready_ms >= 0 and s.duration_ms >= 0
     assert s.result == "ok"
-    assert s.version == VERSION and s.version == "0.5.0"
+    assert s.version == VERSION and s.version == "0.6.0"
 
     human = format_connection_status(s)
     assert "health=ok" in human and "ready=ok" in human

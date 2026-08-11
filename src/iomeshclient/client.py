@@ -26,7 +26,7 @@ from .memory import MemoryClientMethods
 from .policy import PolicyClientMethods
 from .status import StatusClientMethods
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
@@ -95,8 +95,42 @@ class CreateConsumerConfig:
 
 @dataclass
 class ConsumerInfo:
+    """Durable consumer metadata from create / ensure responses."""
+
     stream: str = ""
     name: str = ""
+    ack_floor: int = 0
+    pending_count: int = 0
+    filter_subject: str = ""
+
+
+@dataclass
+class StreamMessage:
+    """One message from stream replay/list (GET /v1/streams/{name}/messages).
+
+    Payload is decoded from wire base64; invalid base64 falls back to raw string bytes.
+    """
+
+    stream: str = ""
+    seq: int = 0
+    subject: str = ""
+    partition: int = 0
+    payload: bytes = b""
+    headers: dict[str, str] = field(default_factory=dict)
+    timestamp: Optional[datetime] = None
+
+
+@dataclass
+class ListStreamMessagesOptions:
+    """Configure stream message replay range (Go ListStreamMessagesOptions).
+
+    Zero values map to broker-friendly defaults: from_seq 0→1, to_seq 0→last,
+    limit 0→100 (capped at 1000 client-side).
+    """
+
+    from_seq: int = 0
+    to_seq: int = 0
+    limit: int = 0
 
 
 @dataclass
@@ -337,6 +371,67 @@ class Client(
         path = f"/v1/streams/{urllib.parse.quote(name, safe='')}"
         self._do_json("DELETE", path, None)
 
+    def list_stream_messages(
+        self,
+        stream: str,
+        opts: Optional[ListStreamMessagesOptions] = None,
+    ) -> list[StreamMessage]:
+        """GET /v1/streams/{name}/messages — stream replay / read-range.
+
+        Query: from_seq (default 1), to_seq (0=last), limit (default 100, max 1000).
+        Empty stream name → ClientError. Non-2xx → APIError (not fail-open).
+        """
+        stream = (stream or "").strip()
+        if not stream:
+            raise ClientError("iomeshclient: stream name required")
+        if opts is None:
+            opts = ListStreamMessagesOptions()
+        from_seq = opts.from_seq if opts.from_seq > 0 else 1
+        to_seq = opts.to_seq if opts.to_seq > 0 else 0
+        limit = opts.limit if opts.limit > 0 else 100
+        if limit > 1000:
+            limit = 1000
+        q = urllib.parse.urlencode(
+            {
+                "from_seq": str(from_seq),
+                "to_seq": str(to_seq),
+                "limit": str(limit),
+            }
+        )
+        path = f"/v1/streams/{urllib.parse.quote(stream, safe='')}/messages?{q}"
+        raw = self._do_json("GET", path, None)
+        if raw is None:
+            return []
+        messages = raw.get("messages") if isinstance(raw, dict) else None
+        if not messages:
+            return []
+        out: list[StreamMessage] = []
+        for m in messages:
+            if not isinstance(m, dict):
+                continue
+            payload_raw = m.get("payload")
+            if payload_raw is None:
+                payload = b""
+            elif isinstance(payload_raw, (bytes, bytearray)):
+                payload = bytes(payload_raw)
+            else:
+                payload = _decode_stream_payload(str(payload_raw))
+            headers = m.get("headers") or {}
+            if not isinstance(headers, dict):
+                headers = {}
+            out.append(
+                StreamMessage(
+                    stream=str(m.get("stream") or stream),
+                    seq=int(m.get("seq") or 0),
+                    subject=str(m.get("subject") or ""),
+                    partition=int(m.get("partition") or 0),
+                    payload=payload,
+                    headers={str(k): str(v) for k, v in headers.items()},
+                    timestamp=_parse_ts(m.get("timestamp")),
+                )
+            )
+        return out
+
     # --- publish ---
 
     def publish(
@@ -393,11 +488,7 @@ class Client(
         path = f"/v1/streams/{urllib.parse.quote(cfg.stream, safe='')}/consumers"
         try:
             raw = self._do_json("POST", path, req) or {}
-            info = ConsumerInfo(
-                stream=str(raw.get("stream") or cfg.stream),
-                name=str(raw.get("name") or cfg.name),
-            )
-            return info
+            return _consumer_info_from(raw, stream=cfg.stream, name=cfg.name)
         except APIError as e:
             if e.status_code == 409:
                 return ConsumerInfo(stream=cfg.stream, name=cfg.name)
@@ -615,6 +706,33 @@ def _stream_info_from(raw: Any) -> StreamInfo:
         max_age_sec=int(max_age_sec) if max_age_sec is not None else None,
         created_at=_parse_ts(raw.get("created_at")),
     )
+
+
+def _consumer_info_from(
+    raw: Any,
+    *,
+    stream: str = "",
+    name: str = "",
+) -> ConsumerInfo:
+    if not isinstance(raw, dict):
+        return ConsumerInfo(stream=stream, name=name)
+    return ConsumerInfo(
+        stream=str(raw.get("stream") or stream),
+        name=str(raw.get("name") or name),
+        ack_floor=int(raw.get("ack_floor") or 0),
+        pending_count=int(raw.get("pending_count") or 0),
+        filter_subject=str(raw.get("filter_subject") or ""),
+    )
+
+
+def _decode_stream_payload(s: str) -> bytes:
+    """Decode base64 payload; on invalid base64 return raw string bytes (Go soft fallback)."""
+    if s == "":
+        return b""
+    try:
+        return base64.b64decode(s, validate=True)
+    except Exception:
+        return s.encode("utf-8")
 
 
 def _parse_ts(val: Any) -> Optional[datetime]:

@@ -10,30 +10,30 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.5) | Notes |
+| Capability (v0.6) | Notes |
 |-------------------|--------|
 | `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
-| Streams: create / ensure / get / list / delete | 409 conflict → best-effort GET |
+| Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
 | **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`retrieve_memory_related`**, **`export_ops_digest`** |
 | **Catalog** | `list_catalog` / `get_catalog_product` — broker + portal path cascade; fail-open |
 | **Policy evaluate** | `evaluate_policy` → `PolicyDecision` (`should_block_tool` / `summary`); fail-open |
 | **Context** | `query_context` / `context_snippet` / `format_context_snippet` — fail-open prompt injection |
-| **Format + connection status** | `format_streams` / `format_stream_detail`; `connection_status` / `format_connection_status` |
+| **Format + connection status** | streams / KV / msg / consumer formatters; `connection_status` / `format_connection_status` |
 | **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
 
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
-**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · tool-marketing adopt optional · richer memory when product-ready.
+**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.6 release tag when PyPI token ready · tool-marketing adopt optional · richer memory when product-ready.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.5.0`  
-> **Status:** public OSS **v0.5.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.6.0`  
+> **Status:** public OSS **v0.6.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -209,19 +209,55 @@ snip = nc.context_snippet("sdk dogfood", workspace=".")
 
 ## Format helpers + connection status
 
-Operator diagnostics (not product GA) — pure stream tables plus a dual health/ready probe snapshot:
+Operator diagnostics (not product GA) — pure string views (no network) plus a dual health/ready probe snapshot:
 
 ```python
-from iomeshclient import format_streams, format_stream_detail, format_connection_status
+from iomeshclient import (
+    format_bucket_info,
+    format_connection_status,
+    format_consumer_info,
+    format_kv_entry,
+    format_kv_keys,
+    format_msg,
+    format_msgs,
+    format_put_result,
+    format_stream_detail,
+    format_streams,
+)
 
 print(format_streams(nc.list_streams()))
 print(format_stream_detail(nc.get_stream("EVENTS")))
+
+# KV operator views (after put / get / list_keys / ensure_bucket)
+print(format_put_result(nc.put("agent-state", "worker-1.checkpoint", b"seq=42")))
+print(format_kv_entry(nc.get("agent-state", "worker-1.checkpoint")))
+print(format_kv_keys("agent-state", nc.list_keys("agent-state", "worker-")))
+print(format_bucket_info(nc.ensure_bucket("agent-state")))
+
+# Pull batch: empty-batch header is OK (count=0)
+batch = sub.fetch(10)
+print(format_msgs(batch))
+if batch:
+    print(format_msg(batch[0]))
+print(format_consumer_info(sub.info))
 
 status = nc.connection_status()  # health then ready; both always run
 print(format_connection_status(status))
 print(status.result, status.health_ok, status.ready_ok)
 ```
 
+Stream replay (explicit discovery — non-2xx raises, not fail-open):
+
+```python
+from iomeshclient import ListStreamMessagesOptions
+
+msgs = nc.list_stream_messages(
+    "EVENTS",
+    ListStreamMessagesOptions(from_seq=1, to_seq=0, limit=50),
+)
+for m in msgs:
+    print(m.seq, m.subject, m.payload)
+```
 ## Kafka Produce subset
 
 Produce-only mesh Kafka protocol client for integrations / pilots (not a full Kafka consumer):
@@ -309,7 +345,8 @@ print(status.result, status.health_ms, status.ready_ms)
 
 ## Residual Next
 
-- **Live PyPI** — package/version ready; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
+- **Live PyPI** — package/version ready at **v0.6.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
+- **v0.6 release tag** — cut `v0.6.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
 - **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
 - **tool-marketing adopt optional** — thin adapter only when real mesh I/O (e.g. outbox → aion ingest) is wired; not a GTM rewrite vehicle.
 
