@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-10
+
+Context plane + operator diagnostics formatters (residual polish) — wire parity with Go `QueryContext` / `ContextSnippet` / `FormatStreams` / `FormatStreamDetail` / `ConnectionStatus` (stdlib only, fail-open).
+
+### Added
+
+- **Context** — `query_context(query, workspace="", limit=0, *, include_lineage=False)` → `ContextResult` (text, lineage/items, path, ok/fail-open); `POST /v1/context/query`; limit default 20; fail-open on transport / non-OK / decode
+- **`context_snippet(query, workspace="")`** — always sets `include_lineage=true`; returns prompt-injection text or empty string on soft failure
+- **`format_context_snippet(result)`** — text + compact `<iomesh-lineage>` block (max 12 refs; product fallback when id empty)
+- **Types** — `LineageRef`, `ContextResult`
+- **Stream formatters** — `format_streams(list[StreamInfo])` compact table; `format_stream_detail(StreamInfo)` multi-line (always emits max_msgs / max_age_sec / created_at blanks when unset)
+- **Connection status** — `connection_status()` probes health then ready (both always run) → `ConnectionStatus` (ok flags, errs, ms latencies, result ok|err); `format_connection_status`; `aggregate_connection_result`
+- **StreamInfo knobs** — optional `max_msgs`, `max_age_sec`, `created_at` decoded from wire for formatters
+- **Tests** — `test_context.py`, `test_status.py`, `test_streams_format.py` (mock HTTP / pure helpers)
+- **User-Agent** — `iomesh-client-sdk-python/0.5.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- Context is **fail-open** Beta agent helper; formatters / connection status are **operator diagnostics**, not product GA
+- dual_write **OFF** by default elsewhere · Kafka Produce subset only
+
 ## [0.4.0] — 2026-08-10
 
 Catalog + policy evaluate helpers (residual polish) — wire parity with Go `ListCatalog` / `GetCatalogProduct` / `EvaluatePolicy` (stdlib only, fail-open).

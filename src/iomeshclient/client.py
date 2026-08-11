@@ -19,12 +19,14 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from .catalog import CatalogClientMethods
+from .context import ContextClientMethods
 from .errors import APIError, ClientError
 from .kv import KVClientMethods
 from .memory import MemoryClientMethods
 from .policy import PolicyClientMethods
+from .status import StatusClientMethods
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
@@ -76,6 +78,10 @@ class StreamInfo:
     first_seq: int = 0
     last_seq: int = 0
     description: str = ""
+    # Optional knobs (operator formatters / scrapers; blank when unset).
+    max_msgs: Optional[int] = None
+    max_age_sec: Optional[int] = None
+    created_at: Optional[datetime] = None
 
 
 @dataclass
@@ -138,8 +144,10 @@ class Client(
     MemoryClientMethods,
     CatalogClientMethods,
     PolicyClientMethods,
+    ContextClientMethods,
+    StatusClientMethods,
 ):
-    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory, catalog, policy)."""
+    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory, catalog, policy, context)."""
 
     def __init__(
         self,
@@ -592,6 +600,8 @@ def _stream_info_from(raw: Any) -> StreamInfo:
     subjects = raw.get("subjects") or []
     if not isinstance(subjects, list):
         subjects = []
+    max_msgs = raw.get("max_msgs")
+    max_age_sec = raw.get("max_age_sec")
     return StreamInfo(
         name=str(raw.get("name") or ""),
         subjects=[str(s) for s in subjects],
@@ -601,6 +611,9 @@ def _stream_info_from(raw: Any) -> StreamInfo:
         first_seq=int(raw.get("first_seq") or 0),
         last_seq=int(raw.get("last_seq") or 0),
         description=str(raw.get("description") or ""),
+        max_msgs=int(max_msgs) if max_msgs is not None else None,
+        max_age_sec=int(max_age_sec) if max_age_sec is not None else None,
+        created_at=_parse_ts(raw.get("created_at")),
     )
 
 

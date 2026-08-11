@@ -10,7 +10,7 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.4) | Notes |
+| Capability (v0.5) | Notes |
 |-------------------|--------|
 | `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
@@ -20,6 +20,8 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`retrieve_memory_related`**, **`export_ops_digest`** |
 | **Catalog** | `list_catalog` / `get_catalog_product` — broker + portal path cascade; fail-open |
 | **Policy evaluate** | `evaluate_policy` → `PolicyDecision` (`should_block_tool` / `summary`); fail-open |
+| **Context** | `query_context` / `context_snippet` / `format_context_snippet` — fail-open prompt injection |
+| **Format + connection status** | `format_streams` / `format_stream_detail`; `connection_status` / `format_connection_status` |
 | **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
@@ -30,8 +32,8 @@ Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.4.0`  
-> **Status:** public OSS **v0.4.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.5.0`  
+> **Status:** public OSS **v0.5.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -190,6 +192,36 @@ else:
 
 Modes: `off` (default) · `advisory` · `enforce`. Missing broker path → `source=unavailable` or `fail-open` (Allow true).
 
+## Context (fail-open)
+
+Agent prompt-injection helper (`POST /v1/context/query`). Soft failures return empty text — never raise for missing context plane.
+
+```python
+from iomeshclient import format_context_snippet
+
+res = nc.query_context("incidents", workspace="ws1", include_lineage=True)
+print(res.text, res.ok, res.source)
+print(format_context_snippet(res))
+
+# Always include_lineage=true; empty string on fail-open
+snip = nc.context_snippet("sdk dogfood", workspace=".")
+```
+
+## Format helpers + connection status
+
+Operator diagnostics (not product GA) — pure stream tables plus a dual health/ready probe snapshot:
+
+```python
+from iomeshclient import format_streams, format_stream_detail, format_connection_status
+
+print(format_streams(nc.list_streams()))
+print(format_stream_detail(nc.get_stream("EVENTS")))
+
+status = nc.connection_status()  # health then ready; both always run
+print(format_connection_status(status))
+print(status.result, status.health_ok, status.ready_ok)
+```
+
 ## Kafka Produce subset
 
 Produce-only mesh Kafka protocol client for integrations / pilots (not a full Kafka consumer):
@@ -249,7 +281,7 @@ for msg in sub.fetch(10, max_wait_ms=5000):
     msg.ack()
 ```
 
-## Health / wait_ready
+## Health / wait_ready / connection_status
 
 ```python
 nc.health()  # GET /health
@@ -258,6 +290,10 @@ nc.ready()   # GET /ready, then /readyz if 404
 # Poll until ready (optional health gate)
 result = nc.wait_ready(timeout_sec=30.0, interval_sec=0.5, require_health=False)
 print(result.elapsed_sec, result.attempts)
+
+# One-shot dual probe snapshot (operator diagnostics)
+status = nc.connection_status()
+print(status.result, status.health_ms, status.ready_ms)
 ```
 
 ## Honesty / non-claims
@@ -266,7 +302,8 @@ print(result.elapsed_sec, result.attempts)
 - **Beta / pre-1.0** — APIs may change before 1.0.
 - **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**.
 - **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
-- **Catalog / policy fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
+- **Catalog / policy / context fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
+- **Formatters / connection status** — operator diagnostics only, not product GA surfaces.
 - **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
 - **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
 

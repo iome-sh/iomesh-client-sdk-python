@@ -26,6 +26,11 @@ from .client import (
     WaitReadyResult,
     connect,
 )
+from .context import (
+    ContextResult,
+    LineageRef,
+    format_context_snippet,
+)
 from .errors import APIError, ClientError
 from .kafka import KafkaClient
 from .kv import (
@@ -56,6 +61,15 @@ from .policy import (
     PolicyInput,
     normalize_policy_mode,
 )
+from .status import (
+    ConnectionStatus,
+    aggregate_connection_result,
+    format_connection_status,
+)
+from .streams_format import (
+    format_stream_detail,
+    format_streams,
+)
 
 __all__ = [
     "POLICY_ADVISORY",
@@ -69,12 +83,15 @@ __all__ = [
     "Client",
     "ClientError",
     "ConnectOptions",
+    "ConnectionStatus",
     "ConsumerInfo",
+    "ContextResult",
     "CreateBucketConfig",
     "CreateConsumerConfig",
     "DualWriteMemoryResult",
     "KVEntry",
     "KafkaClient",
+    "LineageRef",
     "MemoryEntityRef",
     "MemoryEnvelope",
     "MemoryHit",
@@ -96,9 +113,14 @@ __all__ = [
     "StreamInfo",
     "Subscription",
     "WaitReadyResult",
+    "aggregate_connection_result",
     "connect",
     "format_catalog",
+    "format_connection_status",
+    "format_context_snippet",
     "format_product_detail",
+    "format_stream_detail",
+    "format_streams",
     "normalize_policy_mode",
 ]
 
