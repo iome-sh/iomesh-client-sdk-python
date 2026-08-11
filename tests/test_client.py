@@ -188,7 +188,7 @@ def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
     assert captured["auth"] == "Bearer test-token"
     assert captured["ua"] == f"iomesh-client-sdk-python/{VERSION}"
     assert captured["ua"] == DEFAULT_USER_AGENT
-    assert captured["ua"] == "iomesh-client-sdk-python/0.6.0"
+    assert captured["ua"] == "iomesh-client-sdk-python/0.7.0"
 
 
 def test_headers_omitted_when_unset(broker) -> None:
@@ -198,7 +198,7 @@ def test_headers_omitted_when_unset(broker) -> None:
         assert "x-iomesh-org" not in h
         assert "x-iomesh-workspace" not in h
         assert "authorization" not in h
-        assert h.get("user-agent") == "iomesh-client-sdk-python/0.6.0"
+        assert h.get("user-agent") == "iomesh-client-sdk-python/0.7.0"
         return 200, b"", {}
 
     broker.set_handler(handler)
@@ -621,4 +621,4 @@ def test_ready_both_missing(broker) -> None:
 
 
 def test_version_constant() -> None:
-    assert VERSION == "0.6.0"
+    assert VERSION == "0.7.0"
