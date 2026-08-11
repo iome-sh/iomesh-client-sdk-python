@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import time
 import urllib.error
 import urllib.parse
@@ -28,7 +29,7 @@ from .metering import MeteringClientMethods
 from .policy import PolicyClientMethods
 from .status import StatusClientMethods
 
-VERSION = "0.8.0"
+VERSION = "0.9.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
@@ -675,6 +676,45 @@ def connect(options: ConnectOptions) -> Client:
         workspace=options.workspace,
         bearer_token=options.bearer_token,
         user_agent=options.user_agent,
+    )
+
+
+def connect_from_env(environ: Optional[Mapping[str, str]] = None) -> Client:
+    """Build a :class:`Client` from ``IOMESH_*`` environment variables. No network I/O.
+
+    Required:
+      ``IOMESH_URL`` — broker base URL (http/https)
+
+    Optional:
+      ``IOMESH_TENANT``, ``IOMESH_ORG``, ``IOMESH_WORKSPACE``
+      ``IOMESH_BEARER_TOKEN`` or ``IOMESH_TOKEN`` (bearer; BEARER_TOKEN wins if both set)
+      ``IOMESH_TIMEOUT`` — request timeout seconds (float; default 30)
+
+    Raises :class:`ClientError` when ``IOMESH_URL`` is missing/empty or timeout is invalid.
+    """
+    env = environ if environ is not None else os.environ
+    url = (env.get("IOMESH_URL") or "").strip()
+    if not url:
+        raise ClientError("iomeshclient: IOMESH_URL required")
+    token = (env.get("IOMESH_BEARER_TOKEN") or env.get("IOMESH_TOKEN") or "").strip()
+    timeout = DEFAULT_TIMEOUT_SEC
+    raw_timeout = (env.get("IOMESH_TIMEOUT") or "").strip()
+    if raw_timeout:
+        try:
+            timeout = float(raw_timeout)
+        except ValueError as e:
+            raise ClientError(
+                f'iomeshclient: IOMESH_TIMEOUT invalid "{raw_timeout}"'
+            ) from e
+    return connect(
+        ConnectOptions(
+            url=url,
+            timeout=timeout,
+            tenant=(env.get("IOMESH_TENANT") or "").strip(),
+            org=(env.get("IOMESH_ORG") or "").strip(),
+            workspace=(env.get("IOMESH_WORKSPACE") or "").strip(),
+            bearer_token=token,
+        )
     )
 
 

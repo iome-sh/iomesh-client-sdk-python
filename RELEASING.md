@@ -20,11 +20,11 @@ repository secret — **do not commit tokens**.
 ```bash
 # from a clean main tip after the version PR is merged
 git checkout main && git pull --ff-only
-git tag -a v0.8.0 -m "v0.8.0: liveview registry register_processor / list_live_views"
-git push origin v0.8.0
+git tag -a v0.9.0 -m "v0.9.0: async memory recall + connect_from_env"
+git push origin v0.9.0
 ```
 
-Then create a GitHub Release from the tag (UI or `gh release create v0.8.0`).
+Then create a GitHub Release from the tag (UI or `gh release create v0.9.0`).
 
 The optional workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
 runs on `release: published` (and `workflow_dispatch`) and uploads sdist + wheel
@@ -55,8 +55,8 @@ TWINE_USERNAME=__token__ TWINE_PASSWORD="$TESTPYPI_TOKEN" \
 ## Verify
 
 ```bash
-python3 -m pip install -U iomeshclient==0.8.0
-python3 -c "from iomeshclient import VERSION, ProcessorConfig, LiveView; print(VERSION, ProcessorConfig, LiveView)"
+python3 -m pip install -U iomeshclient==0.9.0
+python3 -c "from iomeshclient import VERSION, MemoryRecallRequest, connect_from_env; print(VERSION, MemoryRecallRequest, connect_from_env)"
 ```
 
 ## Honesty

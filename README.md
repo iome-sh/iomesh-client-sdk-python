@@ -10,14 +10,14 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.8) | Notes |
+| Capability (v0.9) | Notes |
 |-------------------|--------|
-| `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
+| `connect` / **`connect_from_env`** + tenant / org / workspace / bearer headers | No network I/O on connect; env reads `IOMESH_*` |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
 | Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
-| **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`retrieve_memory_related`**, **`export_ops_digest`** |
+| **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`request_memory_recall` / `request_memory_recall_full`**, **`retrieve_memory_related`**, **`export_ops_digest`** |
 | **Metering** | `emit_dept_event` / `emit_llm_call` → stream `dept` (org heartbeat / ops pulse) |
 | **Liveview / registry** | `register_processor` (409 = success) · `list_live_views(tenant_id)` — explicit errors, not fail-open |
 | **Catalog** | `list_catalog` / `get_catalog_product` — broker + portal path cascade; fail-open |
@@ -30,12 +30,12 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
-**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.8 release tag when PyPI token ready · tool-marketing adopt optional · richer memory when product-ready.
+**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.9 release tag when PyPI token ready · 1.0 bar residual · tool-marketing adopt optional.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.8.0`  
-> **Status:** public OSS **v0.8.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.9.0`  
+> **Status:** public OSS **v0.9.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -67,8 +67,9 @@ pip install -e ".[dev]"
 Connect, ensure a stream under `dept.*`, and publish a single organizational heartbeat (ops pulse). Agents and workers pull the same subjects as durable consumers.
 
 ```python
-from iomeshclient import ConnectOptions, StreamConfig, connect
+from iomeshclient import ConnectOptions, StreamConfig, connect, connect_from_env
 
+# Explicit options…
 nc = connect(
     ConnectOptions(
         url="http://127.0.0.1:8422",
@@ -77,6 +78,9 @@ nc = connect(
         workspace="ws_default",
     )
 )
+# …or from env: IOMESH_URL (required), optional IOMESH_TENANT / IOMESH_ORG /
+# IOMESH_WORKSPACE / IOMESH_BEARER_TOKEN|IOMESH_TOKEN / IOMESH_TIMEOUT
+# nc = connect_from_env()
 
 info = nc.create_stream(
     StreamConfig(
@@ -159,7 +163,7 @@ nc.delete("agent-state", "worker-1.checkpoint")
 Async local-primary path publishes to `MEMORY_INGEST`. **dual_write is OFF by default** — `sync=False` means no sync sidecar call.
 
 ```python
-from iomeshclient import MemoryEnvelope
+from iomeshclient import MemoryEnvelope, MemoryRecallRequest
 
 env = MemoryEnvelope(role="user", content="lease rotation due Q3", session_id="sess-1")
 
@@ -173,6 +177,19 @@ if res.sync_err:
     print("sync failed open:", res.sync_err)
 elif res.sync:
     print("sync memory_id", res.sync.memory_id)
+
+# Async MEMORY_RPC recall (edge publish only — not invent Memory GA)
+ack = nc.request_memory_recall("dept.research", "lease notes", limit=8)
+# session_id correlation (TUI dogfood parity):
+ack = nc.request_memory_recall_full(
+    MemoryRecallRequest(
+        tenant_id="dept.research",
+        query="lease notes",
+        limit=8,
+        session_id="sess-1",
+    )
+)
+print(ack.stream, ack.seq, ack.subject)
 ```
 
 ### Related (multi-hop lite) + ops digest
@@ -383,9 +400,10 @@ print(status.result, status.health_ms, status.ready_ms)
 
 ## Residual Next
 
-- **Live PyPI** — package/version ready at **v0.8.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
-- **v0.8 release tag** — cut `v0.8.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
+- **Live PyPI** — package/version ready at **v0.9.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
+- **v0.9 release tag** — cut `v0.9.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
 - **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
+- **1.0 bar residual** — broader surface parity / stability gates before major; no invent GA.
 - **tool-marketing adopt optional** — thin adapter only when real mesh I/O (e.g. outbox → aion ingest) is wired; not a GTM rewrite vehicle.
 
 ## Related
