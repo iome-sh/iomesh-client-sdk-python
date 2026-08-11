@@ -28,17 +28,23 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
 | **Typing** | PEP 561 `py.typed` in package/wheel (gradual typing; full mypy CI optional) |
-| **Docs** | [docs/API.md](docs/API.md) surface inventory · [docs/1.0-bar.md](docs/1.0-bar.md) future gates (**not 1.0 yet**) |
+| **Docs** | [docs/API.md](docs/API.md) surface inventory · [docs/1.0-bar.md](docs/1.0-bar.md) future gates (**not 1.0 yet**) · [docs/WRAP_UP.md](docs/WRAP_UP.md) 0.x closeout |
 
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
-**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.10 release tag when PyPI token ready · real **1.0 only when [1.0 bar](docs/1.0-bar.md) is met** (v0.10 ≠ invent 1.0) · tool-marketing adopt optional.
-
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.10.0`  
-> **Status:** public OSS **v0.10.0** (pre-1.0, **Beta** — not 1.0)  
+> **User-Agent:** `iomesh-client-sdk-python/0.10.1`  
+> **Status:** public OSS **v0.10.1** (pre-1.0, **Beta** — not 1.0; 0.x feature continuum closed at v0.10.0)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
+
+## Status (wrap-up)
+
+The active **0.1 → 0.10** feature continuum is **closed**. See **[docs/WRAP_UP.md](docs/WRAP_UP.md)** for the version summary table, honest install paths (git / Release assets / local wheel — **not** invent live PyPI), and the parked residual list.
+
+- Feature tip: **v0.10.0** residual polish toward a future bar  
+- Docs closeout patch: **v0.10.1**  
+- Real **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) gates are met** — **v0.10 does not invent or declare 1.0**
 
 ## Requirements
 
@@ -410,18 +416,18 @@ print(status.result, status.health_ms, status.ready_ms)
 - **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
 - **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
 
-## Residual Next
+## Residual park (only)
 
-- **Live PyPI** — package/version ready at **v0.10.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
-- **v0.10 release tag** — cut `v0.10.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
+Active 0.x feature wave is closed. No further “next feature wave” list — only parked residuals (see [docs/WRAP_UP.md](docs/WRAP_UP.md)):
+
+- **Live PyPI token** — package ready; publish gated on `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)). Do not invent green PyPI.
 - **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
-- **Real 1.0** — only when gates in [docs/1.0-bar.md](docs/1.0-bar.md) are met; **v0.10 does not invent or declare 1.0**.
-- **Strict typing CI** — `py.typed` ships; full mypy/pyright gate remains optional residual.
-- **tool-marketing adopt optional** — thin adapter only when real mesh I/O (e.g. outbox → aion ingest) is wired; not a GTM rewrite vehicle.
+- **True 1.0** — only when gates in [docs/1.0-bar.md](docs/1.0-bar.md) are met; **0.10 ≠ invent 1.0**.
 
-## API inventory + 1.0 bar
+## API inventory + wrap-up + 1.0 bar
 
 - Public surface tables: [docs/API.md](docs/API.md)
+- 0.x continuum closeout: [docs/WRAP_UP.md](docs/WRAP_UP.md)
 - Future 1.0 checklist (**not 1.0 yet**): [docs/1.0-bar.md](docs/1.0-bar.md)
 
 ## Related

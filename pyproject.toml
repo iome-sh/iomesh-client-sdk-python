@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iomeshclient"
-version = "0.10.0"
+version = "0.10.1"
 description = "Official Python client SDK for I/O Mesh (HTTP + Kafka Produce subset: connect, connect_from_env, publish, streams, KV, memory async recall, catalog, policy, context, metering, liveview/registry, format helpers, connection status, connectorsdk, wait_ready; PEP 561 typed)"
 readme = "README.md"
 license = "MIT"

@@ -20,7 +20,7 @@ For future 1.0 gates (not met yet), see [1.0-bar.md](1.0-bar.md).
 | `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/token/timeout |
 | `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent` |
 | `Client` | class | HTTP plane; mixins for KV, memory, metering, catalog, policy, context, liveview, status |
-| `VERSION` / `__version__` | str | e.g. `0.10.0` |
+| `VERSION` / `__version__` | str | e.g. `0.10.1` |
 | `ClientError` / `APIError` | exceptions | Transport / non-2xx |
 
 **Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`; optional `Authorization: Bearer …`  
