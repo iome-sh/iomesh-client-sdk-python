@@ -274,6 +274,6 @@ def test_emit_llm_call_extra_and_error(broker) -> None:
 
 
 def test_version_constants() -> None:
-    assert VERSION == "0.10.0"
+    assert VERSION == "0.10.1"
     assert STREAM_DEPT == "dept"
     assert TYPE_DEPT_AGENT_LLM_CALL == "dept.agent.llm_call"

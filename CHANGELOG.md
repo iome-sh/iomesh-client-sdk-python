@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-08-11
+
+Docs-only wrap-up closeout for the active **0.x feature continuum**. **Does not declare or invent 1.0 / GA / live PyPI.**
+
+### Added
+
+- **Wrap-up status** — [`docs/WRAP_UP.md`](docs/WRAP_UP.md): 0.1–0.10 summary table, honest install paths (git / GitHub Release assets / local wheel), residual park list only
+- **User-Agent** — `iomesh-client-sdk-python/0.10.1`
+
+### Changed
+
+- Version bump **0.10.0 → 0.10.1** (docs closeout; no intentional API changes)
+- README **Status (wrap-up)** section + Residual Next reduced to parked items only
+- RELEASING note: v0.10.0 is the feature continuum tip; 0.10.1 is an optional docs patch
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- dual_write **OFF** by default elsewhere · Kafka Produce subset only
+- **0.x continuum closed** at feature tip v0.10.0; true **1.0 only when [1.0-bar.md](docs/1.0-bar.md) gates are met**
+
 ## [0.10.0] — 2026-08-11
 
 1.0-readiness residual polish — typing marker, public API inventory, future 1.0 bar checklist, durable pull example. **Does not declare or invent 1.0 / GA.**
