@@ -10,7 +10,7 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.7) | Notes |
+| Capability (v0.8) | Notes |
 |-------------------|--------|
 | `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
@@ -19,6 +19,7 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
 | **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`retrieve_memory_related`**, **`export_ops_digest`** |
 | **Metering** | `emit_dept_event` / `emit_llm_call` → stream `dept` (org heartbeat / ops pulse) |
+| **Liveview / registry** | `register_processor` (409 = success) · `list_live_views(tenant_id)` — explicit errors, not fail-open |
 | **Catalog** | `list_catalog` / `get_catalog_product` — broker + portal path cascade; fail-open |
 | **Policy evaluate** | `evaluate_policy` → `PolicyDecision` (`should_block_tool` / `summary`); fail-open |
 | **Context** | `query_context` / `context_snippet` / `format_context_snippet` — fail-open prompt injection |
@@ -29,12 +30,12 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
-**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.7 release tag when PyPI token ready · tool-marketing adopt optional · richer memory when product-ready.
+**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.8 release tag when PyPI token ready · tool-marketing adopt optional · richer memory when product-ready.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.7.0`  
-> **Status:** public OSS **v0.7.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.8.0`  
+> **Status:** public OSS **v0.8.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -376,13 +377,14 @@ print(status.result, status.health_ms, status.ready_ms)
 - **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
 - **Catalog / policy / context fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
 - **Formatters / connection status** — operator diagnostics only, not product GA surfaces.
+- **Liveview / registry** — edge HTTP helpers only; **not** invent liveview product GA or control-plane GA.
 - **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
 - **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
 
 ## Residual Next
 
-- **Live PyPI** — package/version ready at **v0.7.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
-- **v0.7 release tag** — cut `v0.7.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
+- **Live PyPI** — package/version ready at **v0.8.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
+- **v0.8 release tag** — cut `v0.8.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
 - **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
 - **tool-marketing adopt optional** — thin adapter only when real mesh I/O (e.g. outbox → aion ingest) is wired; not a GTM rewrite vehicle.
 
