@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-11
+
+Metering residual polish — dept.* organizational heartbeat / ops pulse emit helpers; wire parity with Go `EmitDeptEvent` / `EmitLLMCall` (stdlib only, publish path).
+
+### Added
+
+- **Metering** — `DeptEvent`, `LLMCallEvent`; `Client.emit_dept_event(ev)` → publish stream `dept` subject = event type → `PubAck`; `Client.emit_llm_call(call)` → type `dept.agent.llm_call` + structured payload (model, tokens, duration_ms, est_usd, …)
+- **Multi-tenant enrich** — when unset on the body, payload gains `tenant` / `org` / `workspace` from client Connect options (parity with Go / iomesh-tui)
+- **Exports** — `STREAM_DEPT`, `TYPE_DEPT_AGENT_LLM_CALL`, `DeptEvent`, `LLMCallEvent`
+- **Example** — `examples/emit_llm_call.py` (needs local/stage broker; residual-honest comments)
+- **Tests** — `test_metering.py` mock HTTP publish path
+- **User-Agent** — `iomesh-client-sdk-python/0.7.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- Public lexicon **heartbeat / pulse** only · dual_write **OFF** by default elsewhere · Kafka Produce subset only
+- Metering is edge publish of org-tool events — not product metering GA or hosted billing invent
+
 ## [0.6.0] — 2026-08-11
 
 Operator diagnostics residual polish — KV + message/consumer format helpers, thin stream replay (`list_stream_messages`); wire parity with Go `FormatPutResult` / `FormatBucketInfo` / `FormatKVEntry` / `FormatKVKeys` / `FormatMsg` / `FormatMsgs` / `FormatConsumerInfo` / `ListStreamMessages` (stdlib only, pure formatters).

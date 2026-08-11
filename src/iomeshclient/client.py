@@ -23,10 +23,11 @@ from .context import ContextClientMethods
 from .errors import APIError, ClientError
 from .kv import KVClientMethods
 from .memory import MemoryClientMethods
+from .metering import MeteringClientMethods
 from .policy import PolicyClientMethods
 from .status import StatusClientMethods
 
-VERSION = "0.6.0"
+VERSION = "0.7.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
@@ -180,8 +181,9 @@ class Client(
     PolicyClientMethods,
     ContextClientMethods,
     StatusClientMethods,
+    MeteringClientMethods,
 ):
-    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory, catalog, policy, context)."""
+    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory, metering, catalog, …)."""
 
     def __init__(
         self,
@@ -256,8 +258,7 @@ class Client(
                         f"({attempts} attempts; last: {last})"
                     ) from last
                 raise ClientError(
-                    f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
-                    f"({attempts} attempts)"
+                    f"iomeshclient: wait ready: timeout after {elapsed:.3f}s ({attempts} attempts)"
                 )
 
             if timeout_sec > 0 and now >= deadline and attempts == 0:
@@ -285,8 +286,7 @@ class Client(
                         f"({attempts} attempts; last: {last})"
                     ) from last
                 raise ClientError(
-                    f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
-                    f"({attempts} attempts)"
+                    f"iomeshclient: wait ready: timeout after {elapsed:.3f}s ({attempts} attempts)"
                 )
 
             sleep_for = interval
@@ -527,11 +527,14 @@ class Client(
             f"/v1/streams/{urllib.parse.quote(stream, safe='')}"
             f"/consumers/{urllib.parse.quote(consumer, safe='')}/fetch"
         )
-        raw = self._do_json(
-            "POST",
-            path,
-            {"batch": batch, "max_wait_ms": int(max_wait_ms)},
-        ) or {}
+        raw = (
+            self._do_json(
+                "POST",
+                path,
+                {"batch": batch, "max_wait_ms": int(max_wait_ms)},
+            )
+            or {}
+        )
         messages = raw.get("messages") if isinstance(raw, dict) else None
         if not messages:
             return []

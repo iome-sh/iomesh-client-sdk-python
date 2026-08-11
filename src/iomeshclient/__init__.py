@@ -61,6 +61,12 @@ from .memory import (
     MemoryRetrieveRequest,
     MemoryRetrieveResponse,
 )
+from .metering import (
+    STREAM_DEPT,
+    TYPE_DEPT_AGENT_LLM_CALL,
+    DeptEvent,
+    LLMCallEvent,
+)
 from .policy import (
     POLICY_ADVISORY,
     POLICY_ENFORCE,
@@ -86,6 +92,8 @@ __all__ = [
     "POLICY_ADVISORY",
     "POLICY_ENFORCE",
     "POLICY_OFF",
+    "STREAM_DEPT",
+    "TYPE_DEPT_AGENT_LLM_CALL",
     "VERSION",
     "APIError",
     "BucketInfo",
@@ -99,9 +107,11 @@ __all__ = [
     "ContextResult",
     "CreateBucketConfig",
     "CreateConsumerConfig",
+    "DeptEvent",
     "DualWriteMemoryResult",
     "KVEntry",
     "KafkaClient",
+    "LLMCallEvent",
     "LineageRef",
     "ListStreamMessagesOptions",
     "MemoryEntityRef",
