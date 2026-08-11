@@ -34,6 +34,12 @@ Optional (if installed):
 ruff check src tests examples
 ```
 
+### Typing
+
+The package ships a PEP 561 marker (`src/iomeshclient/py.typed`) and the wheel
+includes it. Gradual typing is welcome; a full mypy/pyright CI gate is **optional**
+residual toward the [1.0 bar](docs/1.0-bar.md) and is not required for ordinary PRs.
+
 1. Open a PR against `main` from a feature branch.  
 2. Ensure CI is green (pytest matrix).  
 3. Keep commits focused; squash merge is preferred.  

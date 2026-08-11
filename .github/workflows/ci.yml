@@ -29,6 +29,7 @@ jobs:
         run: |
           python -c "from iomeshclient import connect, ConnectOptions, VERSION; print(VERSION)"
           python -c "from iomeshclient.kafka import KafkaClient; print(KafkaClient)"
+          python -c "import pathlib, iomeshclient; p=pathlib.Path(iomeshclient.__file__).with_name('py.typed'); assert p.is_file(), p; print('py.typed', p)"
 
       - name: pytest
         run: python -m pytest -q
@@ -40,3 +41,5 @@ jobs:
           else
             echo "ruff not installed; skipping"
           fi
+
+      # Full mypy/pyright is optional residual (see docs/1.0-bar.md) — not a required gate.

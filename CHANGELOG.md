@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-08-11
+
+1.0-readiness residual polish — typing marker, public API inventory, future 1.0 bar checklist, durable pull example. **Does not declare or invent 1.0 / GA.**
+
+### Added
+
+- **PEP 561** — `src/iomeshclient/py.typed` marker; hatch wheel `force-include` so the marker ships in the built wheel
+- **API inventory** — [`docs/API.md`](docs/API.md) table of public modules/methods by area (connect, streams, publish, consumers, KV, memory, metering, catalog, policy, context, kafka produce, liveview, formatters) with Beta honesty + residual gaps
+- **1.0 bar checklist** — [`docs/1.0-bar.md`](docs/1.0-bar.md) future gates (tests, docs, semver, PyPI, Go parity) with explicit **not 1.0 yet** banner
+- **Example** — `examples/pull_loop.py` residual-honest durable pull fetch/ack demo (needs broker; dual_write not claimed)
+- **User-Agent** — `iomesh-client-sdk-python/0.10.0`
+
+### Changed
+
+- Version bump **0.9.0 → 0.10.0** (no intentional breaking API changes)
+- README Residual Next / capability table → v0.10 framing; docs index pointers
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- **v0.10 ≠ 1.0** — residual polish toward a future bar only; dual_write **OFF** by default elsewhere · Kafka Produce subset only
+- Typing marker enables gradual typing consumers; full mypy/pyright CI remains optional residual
+
 ## [0.9.0] — 2026-08-11
 
 Async memory recall + `connect_from_env` residual polish — wire parity with Go `RequestMemoryRecall` / `RequestMemoryRecallFull`; env-based connect helper (stdlib only).

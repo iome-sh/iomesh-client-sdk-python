@@ -20,11 +20,11 @@ repository secret — **do not commit tokens**.
 ```bash
 # from a clean main tip after the version PR is merged
 git checkout main && git pull --ff-only
-git tag -a v0.9.0 -m "v0.9.0: async memory recall + connect_from_env"
-git push origin v0.9.0
+git tag -a v0.10.0 -m "v0.10.0: typing marker + API inventory + 1.0 bar docs (not invent 1.0)"
+git push origin v0.10.0
 ```
 
-Then create a GitHub Release from the tag (UI or `gh release create v0.9.0`).
+Then create a GitHub Release from the tag (UI or `gh release create v0.10.0`).
 
 The optional workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
 runs on `release: published` (and `workflow_dispatch`) and uploads sdist + wheel

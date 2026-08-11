@@ -10,12 +10,12 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.9) | Notes |
-|-------------------|--------|
+| Capability (v0.10) | Notes |
+|--------------------|--------|
 | `connect` / **`connect_from_env`** + tenant / org / workspace / bearer headers | No network I/O on connect; env reads `IOMESH_*` |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
 | Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
-| Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads |
+| Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads; see `examples/pull_loop.py` |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
 | **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`request_memory_recall` / `request_memory_recall_full`**, **`retrieve_memory_related`**, **`export_ops_digest`** |
 | **Metering** | `emit_dept_event` / `emit_llm_call` → stream `dept` (org heartbeat / ops pulse) |
@@ -27,15 +27,17 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
+| **Typing** | PEP 561 `py.typed` in package/wheel (gradual typing; full mypy CI optional) |
+| **Docs** | [docs/API.md](docs/API.md) surface inventory · [docs/1.0-bar.md](docs/1.0-bar.md) future gates (**not 1.0 yet**) |
 
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
-**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.9 release tag when PyPI token ready · 1.0 bar residual · tool-marketing adopt optional.
+**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · v0.10 release tag when PyPI token ready · real **1.0 only when [1.0 bar](docs/1.0-bar.md) is met** (v0.10 ≠ invent 1.0) · tool-marketing adopt optional.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.9.0`  
-> **Status:** public OSS **v0.9.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.10.0`  
+> **Status:** public OSS **v0.10.0** (pre-1.0, **Beta** — not 1.0)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -371,6 +373,16 @@ for msg in sub.fetch(10, max_wait_ms=5000):
     msg.ack()
 ```
 
+Runnable durable pull loop (fetch + ack, optional publish seed):
+[`examples/pull_loop.py`](examples/pull_loop.py).
+
+```bash
+export IOMESH_URL=http://127.0.0.1:8422
+IOMESH_PUBLISH=1 python examples/pull_loop.py
+```
+
+Needs a local/stage broker. dual_write not claimed.
+
 ## Health / wait_ready / connection_status
 
 ```python
@@ -400,11 +412,17 @@ print(status.result, status.health_ms, status.ready_ms)
 
 ## Residual Next
 
-- **Live PyPI** — package/version ready at **v0.9.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
-- **v0.9 release tag** — cut `v0.9.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
+- **Live PyPI** — package/version ready at **v0.10.0**; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
+- **v0.10 release tag** — cut `v0.10.0` + GitHub Release when PyPI token is available (or tag-only if publish deferred).
 - **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
-- **1.0 bar residual** — broader surface parity / stability gates before major; no invent GA.
+- **Real 1.0** — only when gates in [docs/1.0-bar.md](docs/1.0-bar.md) are met; **v0.10 does not invent or declare 1.0**.
+- **Strict typing CI** — `py.typed` ships; full mypy/pyright gate remains optional residual.
 - **tool-marketing adopt optional** — thin adapter only when real mesh I/O (e.g. outbox → aion ingest) is wired; not a GTM rewrite vehicle.
+
+## API inventory + 1.0 bar
+
+- Public surface tables: [docs/API.md](docs/API.md)
+- Future 1.0 checklist (**not 1.0 yet**): [docs/1.0-bar.md](docs/1.0-bar.md)
 
 ## Related
 
@@ -421,6 +439,8 @@ pip install -e ".[dev]"
 python -m pytest -q
 # optional
 ruff check src tests examples
+# optional typing (not a required CI gate yet — see docs/1.0-bar.md)
+# python -m mypy --follow-imports=skip src/iomeshclient
 ```
 
 Release process: [RELEASING.md](RELEASING.md). See also [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
