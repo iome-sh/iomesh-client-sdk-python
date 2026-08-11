@@ -5,6 +5,12 @@ Public lexicon: organizational heartbeats / ops pulse on dept.* streams.
 Surfaces are Beta / pre-1.0 — not mesh control-plane GA.
 """
 
+from .catalog import (
+    CatalogProduct,
+    CatalogResult,
+    format_catalog,
+    format_product_detail,
+)
 from .client import (
     VERSION,
     Client,
@@ -42,11 +48,24 @@ from .memory import (
     MemoryRetrieveRequest,
     MemoryRetrieveResponse,
 )
+from .policy import (
+    POLICY_ADVISORY,
+    POLICY_ENFORCE,
+    POLICY_OFF,
+    PolicyDecision,
+    PolicyInput,
+    normalize_policy_mode,
+)
 
 __all__ = [
+    "POLICY_ADVISORY",
+    "POLICY_ENFORCE",
+    "POLICY_OFF",
     "VERSION",
     "APIError",
     "BucketInfo",
+    "CatalogProduct",
+    "CatalogResult",
     "Client",
     "ClientError",
     "ConnectOptions",
@@ -68,6 +87,8 @@ __all__ = [
     "MemoryRetrieveRequest",
     "MemoryRetrieveResponse",
     "Msg",
+    "PolicyDecision",
+    "PolicyInput",
     "PubAck",
     "PullSubscribeConfig",
     "PutResult",
@@ -76,6 +97,9 @@ __all__ = [
     "Subscription",
     "WaitReadyResult",
     "connect",
+    "format_catalog",
+    "format_product_detail",
+    "normalize_policy_mode",
 ]
 
 __version__ = VERSION
