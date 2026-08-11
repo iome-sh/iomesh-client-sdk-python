@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-10
+
+Kafka Produce subset, `wait_ready`, memory related + ops_digest, PyPI publish prep — wire parity with Go `kafka` / `WaitReady*` / memory related & ops_digest (stdlib only).
+
+### Added
+
+- **Kafka Produce subset** (`iomeshclient.kafka` / `KafkaClient`) — TCP Produce API v1, message set magic-1 encode (CRC-32C), response offset parse; `produce(topic, partition, key, value) -> offset` + `close()`; mock TCP tests
+- **`wait_ready`** — poll `ready()` (+ optional `health()`) until success or timeout; returns `WaitReadyResult(elapsed_sec, attempts)`; default interval 0.5s
+- **Memory related** — `retrieve_memory_related` POST `/v1` then `/v5/memory/related` cascade; `hop_distance` on `MemoryHit`; multi-hop **lite** honesty
+- **Ops digest** — `export_ops_digest` POST `/v1` then `/v5/memory/ops_digest`; dataclasses for honesty / patterns / receipts / decision_stub
+- **PyPI prep** — `RELEASING.md`, optional `.github/workflows/publish.yml` (release / workflow_dispatch + `secrets.PYPI_TOKEN`; no live publish without token)
+- **User-Agent** — `iomesh-client-sdk-python/0.3.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- dual_write **OFF** by default elsewhere
+- Kafka is **Produce subset only** for mesh integrations / pilots (not full consumer/admin client)
+- multi-hop related is lite · ops GA-path framing · knowledge/analytical Beta · never invent GA
+
 ## [0.2.0] — 2026-08-10
 
 KV helpers, memory helpers (dual_write **OFF** by default), and connectorsdk — wire parity with Go `iomeshclient` / `connectorsdk` (stdlib only).
@@ -24,7 +44,7 @@ KV helpers, memory helpers (dual_write **OFF** by default), and connectorsdk —
 
 - MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
 - dual_write **OFF** by default on `dual_write_memory_turn` (`sync=False`) — optional audit when `sync=True`
-- Kafka Produce, full multi-hop related / ops_digest, wait-ready, PyPI publish: residual **Next**
+
 
 ## [0.1.0] — 2026-08-10
 

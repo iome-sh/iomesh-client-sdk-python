@@ -26,7 +26,9 @@ jobs:
         run: python -m pip install -e ".[dev]"
 
       - name: Import smoke
-        run: python -c "from iomeshclient import connect, ConnectOptions, VERSION; print(VERSION)"
+        run: |
+          python -c "from iomeshclient import connect, ConnectOptions, VERSION; print(VERSION)"
+          python -c "from iomeshclient.kafka import KafkaClient; print(KafkaClient)"
 
       - name: pytest
         run: python -m pytest -q

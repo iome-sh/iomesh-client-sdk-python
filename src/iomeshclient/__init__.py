@@ -17,9 +17,11 @@ from .client import (
     StreamConfig,
     StreamInfo,
     Subscription,
+    WaitReadyResult,
     connect,
 )
 from .errors import APIError, ClientError
+from .kafka import KafkaClient
 from .kv import (
     BucketInfo,
     CreateBucketConfig,
@@ -32,6 +34,11 @@ from .memory import (
     MemoryEnvelope,
     MemoryHit,
     MemoryIngestResponse,
+    MemoryOpsDigestDecisionStub,
+    MemoryOpsDigestHonesty,
+    MemoryOpsDigestPattern,
+    MemoryOpsDigestReceipt,
+    MemoryOpsDigestResponse,
     MemoryRetrieveRequest,
     MemoryRetrieveResponse,
 )
@@ -48,10 +55,16 @@ __all__ = [
     "CreateConsumerConfig",
     "DualWriteMemoryResult",
     "KVEntry",
+    "KafkaClient",
     "MemoryEntityRef",
     "MemoryEnvelope",
     "MemoryHit",
     "MemoryIngestResponse",
+    "MemoryOpsDigestDecisionStub",
+    "MemoryOpsDigestHonesty",
+    "MemoryOpsDigestPattern",
+    "MemoryOpsDigestReceipt",
+    "MemoryOpsDigestResponse",
     "MemoryRetrieveRequest",
     "MemoryRetrieveResponse",
     "Msg",
@@ -61,6 +74,7 @@ __all__ = [
     "StreamConfig",
     "StreamInfo",
     "Subscription",
+    "WaitReadyResult",
     "connect",
 ]
 

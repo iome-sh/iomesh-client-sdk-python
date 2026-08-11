@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -21,10 +22,11 @@ from .errors import APIError, ClientError
 from .kv import KVClientMethods
 from .memory import MemoryClientMethods
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
+DEFAULT_WAIT_READY_INTERVAL_SEC = 0.5
 
 TENANT_HEADER = "X-IOMesh-Tenant"
 ORG_HEADER = "X-IOMesh-Org"
@@ -99,6 +101,14 @@ class PullSubscribeConfig:
 
 
 @dataclass
+class WaitReadyResult:
+    """Outcome of :meth:`Client.wait_ready` (elapsed seconds + probe attempts)."""
+
+    elapsed_sec: float = 0.0
+    attempts: int = 0
+
+
+@dataclass
 class Msg:
     """Fetched message. payload is decoded bytes (broker stores base64)."""
 
@@ -164,6 +174,88 @@ class Client(KVClientMethods, MemoryClientMethods):
         if last_404 is not None:
             raise last_404
         raise ClientError("iomeshclient: ready: http 404")
+
+    def wait_ready(
+        self,
+        *,
+        timeout_sec: float = 30.0,
+        interval_sec: float = DEFAULT_WAIT_READY_INTERVAL_SEC,
+        require_health: bool = False,
+    ) -> WaitReadyResult:
+        """Poll :meth:`ready` until success or *timeout_sec* elapses.
+
+        When *require_health* is True, :meth:`health` must also succeed on the
+        same attempt (after ready). Returns :class:`WaitReadyResult` with
+        elapsed wall time and probe attempt count. Raises :class:`ClientError`
+        on timeout (includes last probe error when available).
+
+        Parity: Go ``WaitReady`` / ``WaitReadyAttempts`` (interval default 500ms).
+        """
+        start = time.monotonic()
+        interval = interval_sec if interval_sec > 0 else DEFAULT_WAIT_READY_INTERVAL_SEC
+        deadline = start + timeout_sec if timeout_sec > 0 else start
+        attempts = 0
+        last: Optional[BaseException] = None
+
+        while True:
+            now = time.monotonic()
+            if timeout_sec > 0 and now >= deadline and attempts > 0:
+                elapsed = now - start
+                if last is not None:
+                    raise ClientError(
+                        f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
+                        f"({attempts} attempts; last: {last})"
+                    ) from last
+                raise ClientError(
+                    f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
+                    f"({attempts} attempts)"
+                )
+
+            if timeout_sec > 0 and now >= deadline and attempts == 0:
+                # zero budget before first probe — still try once if timeout was 0+
+                pass
+
+            attempts += 1
+            try:
+                self.ready()
+                if require_health:
+                    self.health()
+                return WaitReadyResult(
+                    elapsed_sec=time.monotonic() - start,
+                    attempts=attempts,
+                )
+            except (APIError, ClientError) as e:
+                last = e
+
+            now = time.monotonic()
+            if timeout_sec > 0 and now >= deadline:
+                elapsed = now - start
+                if last is not None:
+                    raise ClientError(
+                        f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
+                        f"({attempts} attempts; last: {last})"
+                    ) from last
+                raise ClientError(
+                    f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
+                    f"({attempts} attempts)"
+                )
+
+            sleep_for = interval
+            if timeout_sec > 0:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    elapsed = time.monotonic() - start
+                    if last is not None:
+                        raise ClientError(
+                            f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
+                            f"({attempts} attempts; last: {last})"
+                        ) from last
+                    raise ClientError(
+                        f"iomeshclient: wait ready: timeout after {elapsed:.3f}s "
+                        f"({attempts} attempts)"
+                    )
+                sleep_for = min(interval, remaining)
+            time.sleep(sleep_for)
 
     # --- streams ---
 
