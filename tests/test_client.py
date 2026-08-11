@@ -1,0 +1,513 @@
+"""Unit tests for iomeshclient HTTP core (stdlib mock broker; no live mesh)."""
+
+from __future__ import annotations
+
+import base64
+import json
+import threading
+from collections.abc import Callable
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Any, Optional
+from urllib.parse import unquote
+
+import pytest
+
+from iomeshclient import (
+    VERSION,
+    APIError,
+    ClientError,
+    ConnectOptions,
+    CreateConsumerConfig,
+    StreamConfig,
+    connect,
+)
+from iomeshclient.client import DEFAULT_USER_AGENT
+
+
+class _BrokerState:
+    def __init__(self) -> None:
+        self.requests: list[dict[str, Any]] = []
+        self.handler: Optional[Callable[[Any], tuple[int, bytes, dict[str, str]]]] = None
+
+
+def _make_handler(state: _BrokerState) -> type[BaseHTTPRequestHandler]:
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+        def _handle(self) -> None:
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(length) if length else b""
+            # Case-insensitive map: urllib/http.server header casing varies by platform.
+            headers = {k.lower(): v for k, v in self.headers.items()}
+            rec = {
+                "method": self.command,
+                "path": unquote(self.path.split("?", 1)[0]),
+                "headers": headers,
+                "body": body,
+            }
+            state.requests.append(rec)
+            if state.handler is None:
+                self.send_response(404)
+                self.end_headers()
+                return
+            status, payload, extra_headers = state.handler(rec)
+            self.send_response(status)
+            for k, v in (extra_headers or {}).items():
+                self.send_header(k, v)
+            if payload is not None and status != 204:
+                if "Content-Type" not in (extra_headers or {}):
+                    self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+            self.end_headers()
+            if payload and status != 204:
+                self.wfile.write(payload)
+
+        def do_GET(self) -> None:
+            self._handle()
+
+        def do_POST(self) -> None:
+            self._handle()
+
+        def do_DELETE(self) -> None:
+            self._handle()
+
+    return Handler
+
+
+class _BrokerCtx:
+    def __init__(self, url: str, state: _BrokerState) -> None:
+        self.url = url
+        self._state = state
+
+    def set_handler(
+        self, fn: Callable[[dict[str, Any]], tuple[int, bytes, dict[str, str]]]
+    ) -> None:
+        self._state.handler = fn
+
+    def last(self) -> dict[str, Any]:
+        assert self._state.requests, "expected at least one request"
+        return self._state.requests[-1]
+
+    def json_body(self, rec: Optional[dict[str, Any]] = None) -> Any:
+        r = rec or self.last()
+        if not r["body"]:
+            return None
+        return json.loads(r["body"].decode("utf-8"))
+
+
+@pytest.fixture
+def broker():
+    state = _BrokerState()
+    server = HTTPServer(("127.0.0.1", 0), _make_handler(state))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        yield _BrokerCtx(base, state)
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+# --- connect / URL validation ---
+
+
+def test_connect_rejects_empty_url() -> None:
+    with pytest.raises(ClientError, match="URL required"):
+        connect(ConnectOptions(url=""))
+    with pytest.raises(ClientError, match="URL required"):
+        connect(ConnectOptions(url="   "))
+
+
+def test_connect_rejects_unsafe_urls() -> None:
+    cases = [
+        "file:///etc/passwd",
+        "ftp://example.com",
+        "//no-scheme.example",
+        "http://user:pass@127.0.0.1:8422",
+        "https://alice:secret@mesh.example.com",
+        "not a url",
+    ]
+    for u in cases:
+        with pytest.raises(ClientError):
+            connect(ConnectOptions(url=u))
+
+
+def test_connect_accepts_http_https() -> None:
+    for u in ("http://127.0.0.1:8422", "https://mesh.example.com"):
+        nc = connect(ConnectOptions(url=u))
+        assert nc.base_url == u.rstrip("/")
+
+
+def test_connect_strips_trailing_slash() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:8422/"))
+    assert nc.base_url == "http://127.0.0.1:8422"
+
+
+def test_connect_no_network_io() -> None:
+    # connect must not dial; unreachable port is fine
+    nc = connect(ConnectOptions(url="http://127.0.0.1:1"))
+    assert nc.base_url == "http://127.0.0.1:1"
+
+
+# --- auth headers ---
+
+
+def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
+    captured: dict[str, str] = {}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        h = rec["headers"]
+        captured["tenant"] = h.get("x-iomesh-tenant", "")
+        captured["org"] = h.get("x-iomesh-org", "")
+        captured["workspace"] = h.get("x-iomesh-workspace", "")
+        captured["auth"] = h.get("authorization", "")
+        captured["ua"] = h.get("user-agent", "")
+        return 200, b"", {}
+
+    broker.set_handler(handler)
+    nc = connect(
+        ConnectOptions(
+            url=broker.url,
+            tenant="dept.research",
+            org="org_a",
+            workspace="ws_1",
+            bearer_token="test-token",
+        )
+    )
+    nc.health()
+    assert captured["tenant"] == "dept.research"
+    assert captured["org"] == "org_a"
+    assert captured["workspace"] == "ws_1"
+    assert captured["auth"] == "Bearer test-token"
+    assert captured["ua"] == f"iomesh-client-sdk-python/{VERSION}"
+    assert captured["ua"] == DEFAULT_USER_AGENT
+    assert captured["ua"] == "iomesh-client-sdk-python/0.1.0"
+
+
+def test_headers_omitted_when_unset(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        h = rec["headers"]
+        assert "x-iomesh-tenant" not in h
+        assert "x-iomesh-org" not in h
+        assert "x-iomesh-workspace" not in h
+        assert "authorization" not in h
+        assert h.get("user-agent") == "iomesh-client-sdk-python/0.1.0"
+        return 200, b"", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    nc.health()
+
+
+def test_user_agent_override(broker) -> None:
+    got_ua: list[str] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        got_ua.append(rec["headers"].get("user-agent", ""))
+        return 200, b"", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url, user_agent="my-agent/1.0"))
+    nc.health()
+    assert got_ua == ["my-agent/1.0"]
+
+
+# --- publish ---
+
+
+def test_publish_base64_payload_and_puback(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["method"] == "POST"
+        assert rec["path"] == "/v1/streams/EVENTS/publish"
+        body = json.loads(rec["body"].decode("utf-8"))
+        assert body["subject"] == "dept.engineering.events.demo"
+        assert base64.b64decode(body["payload"]) == b'{"hello":"mesh"}'
+        assert body.get("partition_key") == "pk1"
+        ack = {
+            "stream": "EVENTS",
+            "seq": 42,
+            "subject": "dept.engineering.events.demo",
+            "partition": 3,
+            "timestamp": "2026-08-10T12:00:00Z",
+        }
+        return 200, json.dumps(ack).encode("utf-8"), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    ack = nc.publish(
+        "EVENTS",
+        "dept.engineering.events.demo",
+        b'{"hello":"mesh"}',
+        partition_key="pk1",
+    )
+    assert ack.stream == "EVENTS"
+    assert ack.seq == 42
+    assert ack.subject == "dept.engineering.events.demo"
+    assert ack.partition == 3
+    assert ack.timestamp is not None
+
+
+def test_publish_str_payload_encoded_utf8(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        body = json.loads(rec["body"].decode("utf-8"))
+        assert base64.b64decode(body["payload"]) == "café".encode()
+        return 200, json.dumps({"stream": "S", "seq": 1, "subject": "s"}).encode(), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    ack = nc.publish("S", "s", "café")
+    assert ack.seq == 1
+
+
+def test_publish_validation() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
+    with pytest.raises(ClientError, match="stream and subject required"):
+        nc.publish("", "subj", b"x")
+    with pytest.raises(ClientError, match="stream and subject required"):
+        nc.publish("S", "", b"x")
+
+
+# --- create_stream ---
+
+
+def test_create_stream_201(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["method"] == "POST"
+        assert rec["path"] == "/v1/streams"
+        body = json.loads(rec["body"].decode("utf-8"))
+        assert body == {"name": "EVENTS", "subjects": ["dept.events.>"]}
+        resp = {
+            "name": "EVENTS",
+            "subjects": ["dept.events.>"],
+            "retention": "limits",
+            "partitions": 1,
+            "messages": 0,
+        }
+        return 201, json.dumps(resp).encode("utf-8"), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    info = nc.create_stream(StreamConfig(name="EVENTS", subjects=["dept.events.>"]))
+    assert info is not None
+    assert info.name == "EVENTS"
+    assert info.subjects == ["dept.events.>"]
+    assert info.retention == "limits"
+    assert info.partitions == 1
+
+
+def test_create_stream_409_then_get(broker) -> None:
+    posts = {"n": 0}
+    gets = {"n": 0}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["method"] == "POST" and rec["path"] == "/v1/streams":
+            posts["n"] += 1
+            return 409, b'{"error":"stream already exists"}', {}
+        if rec["method"] == "GET" and rec["path"] == "/v1/streams/EVENTS":
+            gets["n"] += 1
+            resp = {
+                "name": "EVENTS",
+                "subjects": ["dept.events.>"],
+                "messages": 5,
+                "first_seq": 1,
+                "last_seq": 5,
+            }
+            return 200, json.dumps(resp).encode("utf-8"), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    info = nc.create_stream(StreamConfig(name="EVENTS", subjects=["dept.events.>"]))
+    assert posts["n"] == 1 and gets["n"] == 1
+    assert info is not None
+    assert info.name == "EVENTS"
+    assert info.last_seq == 5
+
+
+def test_create_stream_409_get_fails_returns_none(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["method"] == "POST" and rec["path"] == "/v1/streams":
+            return 409, b'{"error":"stream already exists"}', {}
+        return 404, b'{"error":"not found"}', {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    info = nc.create_stream(StreamConfig(name="EVENTS", subjects=["dept.events.>"]))
+    assert info is None
+
+
+def test_create_stream_validation() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
+    with pytest.raises(ClientError, match="stream name required"):
+        nc.create_stream(StreamConfig(name="", subjects=["x.>"]))
+    with pytest.raises(ClientError, match="subjects required"):
+        nc.create_stream(StreamConfig(name="EVENTS", subjects=[]))
+
+
+# --- consumers ---
+
+
+def test_create_consumer_and_fetch_decode_ack(broker) -> None:
+    seqs_acked: list[int] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        path = rec["path"]
+        method = rec["method"]
+        if method == "POST" and path == "/v1/streams/EVENTS/consumers":
+            body = json.loads(rec["body"].decode("utf-8"))
+            assert body["name"] == "c1"
+            assert body.get("filter_subject") == "dept.events.>"
+            return 201, json.dumps({"stream": "EVENTS", "name": "c1"}).encode(), {}
+        if method == "POST" and path == "/v1/streams/EVENTS/consumers/c1/fetch":
+            body = json.loads(rec["body"].decode("utf-8"))
+            assert body["batch"] == 2
+            payload = base64.b64encode(b"hello-mesh").decode("ascii")
+            msgs = {
+                "messages": [
+                    {
+                        "stream": "EVENTS",
+                        "seq": 7,
+                        "subject": "dept.events.demo",
+                        "payload": payload,
+                        "partition": 0,
+                        "headers": {"x-k": "v"},
+                    }
+                ]
+            }
+            return 200, json.dumps(msgs).encode(), {}
+        if method == "POST" and path == "/v1/streams/EVENTS/consumers/c1/ack":
+            body = json.loads(rec["body"].decode("utf-8"))
+            seqs_acked.extend(body["seqs"])
+            return 204, b"", {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    info = nc.create_consumer(
+        CreateConsumerConfig(stream="EVENTS", name="c1", filter_subject="dept.events.>")
+    )
+    assert info.stream == "EVENTS" and info.name == "c1"
+
+    msgs = nc.consumer_fetch("EVENTS", "c1", 2)
+    assert len(msgs) == 1
+    assert msgs[0].seq == 7
+    assert msgs[0].data == b"hello-mesh"
+    assert msgs[0].subject == "dept.events.demo"
+    assert msgs[0].headers.get("x-k") == "v"
+
+    msgs[0].ack()
+    assert seqs_acked == [7]
+
+
+def test_create_consumer_409_conflict(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["method"] == "POST" and rec["path"] == "/v1/streams/EVENTS/consumers":
+            return 409, b'{"error":"exists"}', {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    info = nc.create_consumer(CreateConsumerConfig(stream="EVENTS", name="c1"))
+    assert info.stream == "EVENTS" and info.name == "c1"
+
+
+def test_consumer_nack(broker) -> None:
+    nacked: list[int] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"].endswith("/nack"):
+            body = json.loads(rec["body"].decode("utf-8"))
+            nacked.extend(body["seqs"])
+            return 204, b"", {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    nc.consumer_nack("EVENTS", "c1", 9, 10)
+    assert nacked == [9, 10]
+
+
+def test_pull_subscribe_creates_consumer(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/streams/EVENTS/consumers":
+            return 201, json.dumps({"stream": "EVENTS", "name": "puller"}).encode(), {}
+        if rec["path"].endswith("/fetch"):
+            return 200, json.dumps({"messages": []}).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    from iomeshclient import PullSubscribeConfig
+
+    nc = connect(ConnectOptions(url=broker.url))
+    sub = nc.pull_subscribe(
+        PullSubscribeConfig(stream="EVENTS", consumer="puller", filter="dept.>")
+    )
+    assert sub.stream == "EVENTS" and sub.consumer == "puller"
+    assert sub.fetch(1) == []
+
+
+# --- health / ready ---
+
+
+def test_health_ok(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["path"] == "/health"
+        return 200, b"ok", {"Content-Type": "text/plain"}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    nc.health()
+
+
+def test_health_non_ok(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        return 503, b"unavailable", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    with pytest.raises(APIError) as ei:
+        nc.health()
+    assert ei.value.status_code == 503
+
+
+def test_ready_ok(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/ready":
+            return 200, b"", {}
+        return 404, b"", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    nc.ready()
+
+
+def test_ready_fallback_readyz(broker) -> None:
+    paths: list[str] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        paths.append(rec["path"])
+        if rec["path"] == "/readyz":
+            return 200, b"", {}
+        return 404, b"", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    nc.ready()
+    assert paths[:2] == ["/ready", "/readyz"]
+
+
+def test_ready_both_missing(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        return 404, b"missing", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    with pytest.raises(APIError) as ei:
+        nc.ready()
+    assert ei.value.status_code == 404
+
+
+def test_version_constant() -> None:
+    assert VERSION == "0.1.0"
