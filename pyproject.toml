@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iomeshclient"
-version = "0.9.0"
-description = "Official Python client SDK for I/O Mesh (HTTP + Kafka Produce subset: connect, connect_from_env, publish, streams, KV, memory async recall, catalog, policy, context, metering, liveview/registry, format helpers, connection status, connectorsdk, wait_ready)"
+version = "0.10.0"
+description = "Official Python client SDK for I/O Mesh (HTTP + Kafka Produce subset: connect, connect_from_env, publish, streams, KV, memory async recall, catalog, policy, context, metering, liveview/registry, format helpers, connection status, connectorsdk, wait_ready; PEP 561 typed)"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
@@ -39,11 +39,16 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/iomeshclient"]
 
+# Ensure PEP 561 marker is present in the wheel even if VCS edge cases omit it.
+[tool.hatch.build.targets.wheel.force-include]
+"src/iomeshclient/py.typed" = "iomeshclient/py.typed"
+
 [tool.hatch.build.targets.sdist]
 include = [
   "src/iomeshclient",
   "tests",
   "examples",
+  "docs",
   "README.md",
   "LICENSE",
   "CHANGELOG.md",
