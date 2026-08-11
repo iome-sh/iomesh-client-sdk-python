@@ -1,7 +1,9 @@
-"""Memory helpers — edge async ingest + optional sync dual_write.
+"""Memory helpers — edge async ingest + optional sync dual_write + related/ops_digest.
 
 Honesty:
 - dual_write **OFF** by default (sync=False): local-primary MEMORY_INGEST publish only
+- multi-hop related is **lite** (EntityGraph BFS) · not full graph RAG / KG · not Memory GA
+- ops_digest: ops GA-path framing · knowledge/analytical Beta · never invent GA
 - Not freemium palace · not product Memory GA · not control-plane GA
 - Sync ingest is fail-open audit path when sync=True
 """
@@ -25,6 +27,10 @@ PATH_MEMORY_INGEST_V1 = "/v1/memory/ingest"
 PATH_MEMORY_INGEST_V5 = "/v5/memory/ingest"
 PATH_MEMORY_RETRIEVE_V1 = "/v1/memory/retrieve"
 PATH_MEMORY_RETRIEVE_V5 = "/v5/memory/retrieve"
+PATH_MEMORY_RELATED_V1 = "/v1/memory/related"
+PATH_MEMORY_RELATED_V5 = "/v5/memory/related"
+PATH_MEMORY_OPS_DIGEST_V1 = "/v1/memory/ops_digest"
+PATH_MEMORY_OPS_DIGEST_V5 = "/v5/memory/ops_digest"
 
 
 @dataclass
@@ -84,7 +90,7 @@ class DualWriteMemoryResult:
 
 @dataclass
 class MemoryHit:
-    """One recall result from the memory sidecar."""
+    """One recall result from the memory sidecar (retrieve or related)."""
 
     id: str = ""
     memory_id: str = ""
@@ -97,6 +103,9 @@ class MemoryHit:
     turn_id: str = ""
     event_time: str = ""
     session_seq: int = 0
+    # hop_distance set on multi-hop related when sidecar annotates min hop from seed
+    # (0 = seed entity). Omitted on plain retrieve. Multi-hop lite · not full graph RAG.
+    hop_distance: int = 0
 
 
 @dataclass
@@ -114,9 +123,71 @@ class MemoryRetrieveRequest:
 
 @dataclass
 class MemoryRetrieveResponse:
-    """Sync retrieve JSON body."""
+    """Sync retrieve / related JSON body."""
 
     memories: list[MemoryHit] = field(default_factory=list)
+    path: str = ""  # successful API path; not on wire
+
+
+@dataclass
+class MemoryOpsDigestHonesty:
+    """Residual-honest framing on the ops digest export."""
+
+    ops_pulse: str = ""
+    knowledge: str = ""
+    analytical: str = ""
+    never_invent_ga: bool = False
+    dual_write_default: str = ""
+    book_demo: str = ""
+    note: str = ""
+
+
+@dataclass
+class MemoryOpsDigestPattern:
+    """One pattern signal in an ops digest."""
+
+    id: str = ""
+    kind: str = ""
+    subject: str = ""
+    count: int = 0
+    window: str = ""
+    score: float = 0.0
+    summary: str = ""
+    first_seen: str = ""
+    last_seen: str = ""
+
+
+@dataclass
+class MemoryOpsDigestReceipt:
+    """One timeline receipt in an ops digest pack."""
+
+    id: str = ""
+    event_time: str = ""
+    summary: str = ""
+    source_hint: str = ""
+
+
+@dataclass
+class MemoryOpsDigestDecisionStub:
+    """Human-owned decision scaffold (not auto-apply)."""
+
+    pattern: str = ""
+    receipts_ref: list[str] = field(default_factory=list)
+    product_or_gtm_hypothesis: str = ""
+
+
+@dataclass
+class MemoryOpsDigestResponse:
+    """Ops digest export JSON body from POST /v1|/v5/memory/ops_digest."""
+
+    window: str = ""
+    horizon: str = ""
+    as_of: str = ""
+    since: str = ""
+    honesty: Optional[MemoryOpsDigestHonesty] = None
+    patterns: list[MemoryOpsDigestPattern] = field(default_factory=list)
+    receipts: list[MemoryOpsDigestReceipt] = field(default_factory=list)
+    decision_stub: Optional[MemoryOpsDigestDecisionStub] = None
     path: str = ""  # successful API path; not on wire
 
 
@@ -237,21 +308,7 @@ class MemoryClientMethods:
                     for m in memories_raw:
                         if not isinstance(m, dict):
                             continue
-                        memories.append(
-                            MemoryHit(
-                                id=str(m.get("id") or ""),
-                                memory_id=str(m.get("memory_id") or ""),
-                                summary=str(m.get("summary") or ""),
-                                full=str(m.get("full") or ""),
-                                content=str(m.get("content") or ""),
-                                score=float(m.get("score") or 0),
-                                confidence=float(m.get("confidence") or 0),
-                                timestamp=str(m.get("timestamp") or ""),
-                                turn_id=str(m.get("turn_id") or ""),
-                                event_time=str(m.get("event_time") or ""),
-                                session_seq=int(m.get("session_seq") or 0),
-                            )
-                        )
+                        memories.append(_memory_hit_from(m))
                 return MemoryRetrieveResponse(memories=memories, path=path)
             except APIError as e:
                 last_err = e
@@ -266,6 +323,224 @@ class MemoryClientMethods:
         if last_err is not None:
             raise last_err
         raise ClientError("iomeshclient: memory retrieve: no path succeeded")
+
+    def retrieve_memory_related(
+        self,
+        tenant_id: str,
+        *,
+        seed_entity: str = "",
+        query: str = "",
+        max_hops: int = 0,
+        limit: int = 0,
+        session_id: str = "",
+        as_of: str = "",
+        prefer_shorter_hops: Optional[bool] = None,
+    ) -> MemoryRetrieveResponse:
+        """Multi-hop associative recall: POST /v1 then /v5 /memory/related.
+
+        Honesty: multi-hop lite (EntityGraph BFS + entry entity tags) · not full
+        graph RAG / KG · not product Memory GA · dual_write remains OFF by default
+        elsewhere. At least one of *seed_entity* or *query* is required.
+        *prefer_shorter_hops* omit/None = kernel default true; False = legacy seed-first.
+        """
+        tenant_id = (tenant_id or "").strip()
+        seed_entity = (seed_entity or "").strip()
+        query = (query or "").strip()
+        session_id = (session_id or "").strip()
+        as_of = (as_of or "").strip()
+        if not tenant_id:
+            raise ClientError("iomeshclient: tenant_id required")
+        if not seed_entity and not query:
+            raise ClientError("iomeshclient: seed_entity or query required")
+
+        body: dict[str, Any] = {"tenant_id": tenant_id}
+        if seed_entity:
+            body["seed_entity"] = seed_entity
+        if query:
+            body["query"] = query
+        if max_hops > 0:
+            body["max_hops"] = max_hops
+        if limit > 0:
+            body["limit"] = limit
+        if session_id:
+            body["session_id"] = session_id
+        if as_of:
+            body["as_of"] = as_of
+        if prefer_shorter_hops is not None:
+            body["prefer_shorter_hops"] = prefer_shorter_hops
+
+        last_err: Optional[BaseException] = None
+        for path in (PATH_MEMORY_RELATED_V1, PATH_MEMORY_RELATED_V5):
+            try:
+                raw = self._do_json("POST", path, body) or {}  # type: ignore[attr-defined]
+                memories_raw = raw.get("memories") if isinstance(raw, dict) else None
+                memories: list[MemoryHit] = []
+                if isinstance(memories_raw, list):
+                    for m in memories_raw:
+                        if isinstance(m, dict):
+                            memories.append(_memory_hit_from(m))
+                return MemoryRetrieveResponse(memories=memories, path=path)
+            except APIError as e:
+                last_err = e
+                if e.status_code == 404:
+                    continue
+                if 400 <= e.status_code < 500:
+                    raise
+                continue
+            except ClientError as e:
+                last_err = e
+                continue
+        if last_err is not None:
+            raise last_err
+        raise ClientError("iomeshclient: memory related: no path succeeded")
+
+    def export_ops_digest(
+        self,
+        tenant_id: str,
+        *,
+        window: str = "day",
+        horizon: str = "ops",
+        as_of: str = "",
+        limit: int = 0,
+    ) -> MemoryOpsDigestResponse:
+        """Ops heartbeat digest export: POST /v1 then /v5 /memory/ops_digest.
+
+        Honesty: ops GA-path framing · knowledge/analytical Beta · never invent GA ·
+        dual_write OFF · book-demo OFF · not product Memory GA. Human owns irreversible
+        decisions. *window* defaults to ``day``; *horizon* defaults to ``ops``.
+        """
+        tenant_id = (tenant_id or "").strip()
+        window = (window or "").strip().lower() or "day"
+        horizon = (horizon or "").strip().lower() or "ops"
+        as_of = (as_of or "").strip()
+        if not tenant_id:
+            raise ClientError("iomeshclient: tenant_id required")
+
+        body: dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "window": window,
+            "horizon": horizon,
+        }
+        if limit > 0:
+            body["limit"] = limit
+        if as_of:
+            body["as_of"] = as_of
+
+        last_err: Optional[BaseException] = None
+        for path in (PATH_MEMORY_OPS_DIGEST_V1, PATH_MEMORY_OPS_DIGEST_V5):
+            try:
+                raw = self._do_json("POST", path, body) or {}  # type: ignore[attr-defined]
+                if not isinstance(raw, dict):
+                    raw = {}
+                return MemoryOpsDigestResponse(
+                    window=str(raw.get("window") or window),
+                    horizon=str(raw.get("horizon") or horizon),
+                    as_of=str(raw.get("as_of") or ""),
+                    since=str(raw.get("since") or ""),
+                    honesty=_ops_honesty_from(raw.get("honesty")),
+                    patterns=_ops_patterns_from(raw.get("patterns")),
+                    receipts=_ops_receipts_from(raw.get("receipts")),
+                    decision_stub=_ops_decision_from(raw.get("decision_stub")),
+                    path=path,
+                )
+            except APIError as e:
+                last_err = e
+                if e.status_code == 404:
+                    continue
+                if 400 <= e.status_code < 500:
+                    raise
+                continue
+            except ClientError as e:
+                last_err = e
+                continue
+        if last_err is not None:
+            raise last_err
+        raise ClientError("iomeshclient: memory ops_digest: no path succeeded")
+
+
+def _memory_hit_from(m: dict[str, Any]) -> MemoryHit:
+    return MemoryHit(
+        id=str(m.get("id") or ""),
+        memory_id=str(m.get("memory_id") or ""),
+        summary=str(m.get("summary") or ""),
+        full=str(m.get("full") or ""),
+        content=str(m.get("content") or ""),
+        score=float(m.get("score") or 0),
+        confidence=float(m.get("confidence") or 0),
+        timestamp=str(m.get("timestamp") or ""),
+        turn_id=str(m.get("turn_id") or ""),
+        event_time=str(m.get("event_time") or ""),
+        session_seq=int(m.get("session_seq") or 0),
+        hop_distance=int(m.get("hop_distance") or 0),
+    )
+
+
+def _ops_honesty_from(raw: Any) -> Optional[MemoryOpsDigestHonesty]:
+    if not isinstance(raw, dict):
+        return None
+    return MemoryOpsDigestHonesty(
+        ops_pulse=str(raw.get("ops_pulse") or ""),
+        knowledge=str(raw.get("knowledge") or ""),
+        analytical=str(raw.get("analytical") or ""),
+        never_invent_ga=bool(raw.get("never_invent_ga")),
+        dual_write_default=str(raw.get("dual_write_default") or ""),
+        book_demo=str(raw.get("book_demo") or ""),
+        note=str(raw.get("note") or ""),
+    )
+
+
+def _ops_patterns_from(raw: Any) -> list[MemoryOpsDigestPattern]:
+    if not isinstance(raw, list):
+        return []
+    out: list[MemoryOpsDigestPattern] = []
+    for p in raw:
+        if not isinstance(p, dict):
+            continue
+        out.append(
+            MemoryOpsDigestPattern(
+                id=str(p.get("id") or ""),
+                kind=str(p.get("kind") or ""),
+                subject=str(p.get("subject") or ""),
+                count=int(p.get("count") or 0),
+                window=str(p.get("window") or ""),
+                score=float(p.get("score") or 0),
+                summary=str(p.get("summary") or ""),
+                first_seen=str(p.get("first_seen") or ""),
+                last_seen=str(p.get("last_seen") or ""),
+            )
+        )
+    return out
+
+
+def _ops_receipts_from(raw: Any) -> list[MemoryOpsDigestReceipt]:
+    if not isinstance(raw, list):
+        return []
+    out: list[MemoryOpsDigestReceipt] = []
+    for r in raw:
+        if not isinstance(r, dict):
+            continue
+        out.append(
+            MemoryOpsDigestReceipt(
+                id=str(r.get("id") or ""),
+                event_time=str(r.get("event_time") or ""),
+                summary=str(r.get("summary") or ""),
+                source_hint=str(r.get("source_hint") or ""),
+            )
+        )
+    return out
+
+
+def _ops_decision_from(raw: Any) -> Optional[MemoryOpsDigestDecisionStub]:
+    if not isinstance(raw, dict):
+        return None
+    refs = raw.get("receipts_ref") or []
+    if not isinstance(refs, list):
+        refs = []
+    return MemoryOpsDigestDecisionStub(
+        pattern=str(raw.get("pattern") or ""),
+        receipts_ref=[str(x) for x in refs],
+        product_or_gtm_hypothesis=str(raw.get("product_or_gtm_hypothesis") or ""),
+    )
 
 
 def _envelope_to_dict(env: MemoryEnvelope, *, type_default: str) -> dict[str, Any]:

@@ -4,40 +4,41 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PyPI status](https://img.shields.io/badge/status-Beta%20pre--1.0-yellow.svg)](#status)
 
-Official **Python client SDK** for the [I/O Mesh](https://iome.sh) broker (HTTP plane).
+Official **Python client SDK** for the [I/O Mesh](https://iome.sh) broker (HTTP plane + Kafka Produce subset).
 
 Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` streams: connectors and services emit org-tool events; agents and workers consume them via durable pull. Public lexicon is **heartbeat / pulse** only.
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.2) | Notes |
+| Capability (v0.3) | Notes |
 |-------------------|--------|
 | `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
 | Streams: create / ensure / get / list / delete | 409 conflict → best-effort GET |
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
-| **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, thin `retrieve_memory` |
+| **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`retrieve_memory_related`**, **`export_ops_digest`** |
 | **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
-| Health / ready | `GET /health`, `GET /ready` then `/readyz` |
+| **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
+| Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
 
-Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk). Residual **Next**: Kafka Produce, full related/ops_digest, wait-ready, PyPI.
+Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk). Residual **Next**: full consumer Kafka, richer memory surfaces when product-ready, live PyPI green when token is configured.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.2.0`  
-> **Status:** public OSS **v0.2.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.3.0`  
+> **Status:** public OSS **v0.3.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
 
 - Python **3.10+**
 - Network access to an I/O Mesh broker (or local foundation)
-- **stdlib only** for the client (`urllib`); no third-party runtime deps
+- **stdlib only** for the client (`urllib`, `socket`); no third-party runtime deps
 
 ## Install
 
-From source (until a PyPI release is published):
+From source (until a PyPI release is published — see [RELEASING.md](RELEASING.md)):
 
 ```bash
 pip install -e "git+https://github.com/iome-sh/iomesh-client-sdk-python.git#egg=iomeshclient"
@@ -131,7 +132,38 @@ elif res.sync:
     print("sync memory_id", res.sync.memory_id)
 ```
 
-Honesty: not freemium palace · not product Memory GA · not control-plane GA.
+### Related (multi-hop lite) + ops digest
+
+```python
+# Multi-hop lite · not full graph RAG · not Memory GA
+related = nc.retrieve_memory_related(
+    "dept.research",
+    seed_entity="person:alice",
+    max_hops=2,
+    limit=10,
+)
+for hit in related.memories:
+    print(hit.id, hit.hop_distance, hit.summary)
+
+# Ops heartbeat digest (ops GA-path framing; knowledge/analytical Beta)
+digest = nc.export_ops_digest("dept.ops", window="day", horizon="ops")
+print(digest.window, len(digest.patterns), digest.honesty)
+```
+
+Honesty: not freemium palace · not product Memory GA · not control-plane GA · dual_write OFF elsewhere.
+
+## Kafka Produce subset
+
+Produce-only mesh Kafka protocol client for integrations / pilots (not a full Kafka consumer):
+
+```python
+from iomeshclient import KafkaClient
+# or: from iomeshclient.kafka import KafkaClient
+
+with KafkaClient("127.0.0.1:9423") as kc:
+    offset = kc.produce("events", 0, None, b'{"hello":"mesh"}')
+    print("offset", offset)
+```
 
 ## connectorsdk
 
@@ -179,26 +211,31 @@ for msg in sub.fetch(10, max_wait_ms=5000):
     msg.ack()
 ```
 
-## Health
+## Health / wait_ready
 
 ```python
 nc.health()  # GET /health
 nc.ready()   # GET /ready, then /readyz if 404
+
+# Poll until ready (optional health gate)
+result = nc.wait_ready(timeout_sec=30.0, interval_sec=0.5, require_health=False)
+print(result.elapsed_sec, result.attempts)
 ```
 
 ## Honesty / non-claims
 
 - **MIT edge client only** — not freemium palace access, not control-plane GA.
 - **Beta / pre-1.0** — APIs may change before 1.0.
-- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync.
+- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**.
 - **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
-- **Requires a broker** — unit tests mock HTTP; live examples need local/stage mesh.
+- **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
+- **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
 
 ## Related
 
 | Project | Role |
 |---------|------|
-| [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go) | Official Go client (broader surface: related/ops_digest, Kafka Produce, …) |
+| [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go) | Official Go client (broader surface) |
 | [iomesh-tui](https://github.com/iome-sh/iomesh-tui) | Agent TUI |
 | [iome.sh](https://iome.sh) | Product home |
 
@@ -211,7 +248,7 @@ python -m pytest -q
 ruff check src tests examples
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+Release process: [RELEASING.md](RELEASING.md). See also [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
 
 ## License
 

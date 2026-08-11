@@ -288,3 +288,170 @@ def test_retrieve_memory_thin(broker) -> None:
     assert len(resp.memories) == 1
     assert resp.memories[0].id == "mem-1"
     assert resp.memories[0].score == 0.91
+
+
+def test_retrieve_memory_related_v1_then_v5(broker) -> None:
+    paths: list[str] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        paths.append(rec["path"])
+        if rec["path"] == "/v1/memory/related":
+            return 404, b"{}", {}
+        if rec["path"] == "/v5/memory/related":
+            body = json.loads(rec["body"].decode())
+            assert body["tenant_id"] == "dept.research"
+            assert body["seed_entity"] == "person:alice"
+            assert body["max_hops"] == 2
+            assert body["limit"] == 10
+            assert body["prefer_shorter_hops"] is False
+            return 200, json.dumps(
+                {
+                    "memories": [
+                        {
+                            "id": "mem-r1",
+                            "summary": "related note",
+                            "score": 0.8,
+                            "hop_distance": 1,
+                        }
+                    ]
+                }
+            ).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.retrieve_memory_related(
+        "dept.research",
+        seed_entity="person:alice",
+        max_hops=2,
+        limit=10,
+        prefer_shorter_hops=False,
+    )
+    assert resp.path == "/v5/memory/related"
+    assert len(resp.memories) == 1
+    assert resp.memories[0].id == "mem-r1"
+    assert resp.memories[0].hop_distance == 1
+    assert paths == ["/v1/memory/related", "/v5/memory/related"]
+
+
+def test_retrieve_memory_related_query_only(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/memory/related":
+            body = json.loads(rec["body"].decode())
+            assert body["query"] == "lease"
+            assert "seed_entity" not in body
+            return 200, json.dumps({"memories": []}).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.retrieve_memory_related("dept.x", query="lease")
+    assert resp.path == "/v1/memory/related"
+    assert resp.memories == []
+
+
+def test_retrieve_memory_related_validation() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
+    with pytest.raises(ClientError, match="tenant_id required"):
+        nc.retrieve_memory_related("")
+    with pytest.raises(ClientError, match="seed_entity or query required"):
+        nc.retrieve_memory_related("dept.x")
+
+
+def test_export_ops_digest_v1_then_v5(broker) -> None:
+    paths: list[str] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        paths.append(rec["path"])
+        if rec["path"] == "/v1/memory/ops_digest":
+            return 404, b"{}", {}
+        if rec["path"] == "/v5/memory/ops_digest":
+            body = json.loads(rec["body"].decode())
+            assert body["tenant_id"] == "dept.ops"
+            assert body["window"] == "week"
+            assert body["horizon"] == "ops"
+            assert body["as_of"] == "2026-08-01T00:00:00Z"
+            return 200, json.dumps(
+                {
+                    "window": "week",
+                    "horizon": "ops",
+                    "as_of": "2026-08-01T00:00:00Z",
+                    "since": "2026-07-25T00:00:00Z",
+                    "honesty": {
+                        "ops_pulse": "ga_path",
+                        "knowledge": "beta",
+                        "analytical": "beta",
+                        "never_invent_ga": True,
+                        "dual_write_default": "off",
+                        "book_demo": "off",
+                    },
+                    "patterns": [
+                        {
+                            "id": "p1",
+                            "kind": "burst",
+                            "subject": "dept.ops.events.>",
+                            "count": 12,
+                            "summary": "elevated publish rate",
+                        }
+                    ],
+                    "receipts": [
+                        {
+                            "id": "r1",
+                            "event_time": "2026-07-30T12:00:00Z",
+                            "summary": "heartbeat",
+                        }
+                    ],
+                    "decision_stub": {
+                        "pattern": "p1",
+                        "receipts_ref": ["r1"],
+                        "product_or_gtm_hypothesis": "scale workers",
+                    },
+                }
+            ).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.export_ops_digest(
+        "dept.ops",
+        window="week",
+        horizon="ops",
+        as_of="2026-08-01T00:00:00Z",
+    )
+    assert resp.path == "/v5/memory/ops_digest"
+    assert resp.window == "week"
+    assert resp.horizon == "ops"
+    assert resp.honesty is not None
+    assert resp.honesty.never_invent_ga is True
+    assert resp.honesty.dual_write_default == "off"
+    assert len(resp.patterns) == 1
+    assert resp.patterns[0].id == "p1"
+    assert len(resp.receipts) == 1
+    assert resp.decision_stub is not None
+    assert resp.decision_stub.pattern == "p1"
+    assert paths == ["/v1/memory/ops_digest", "/v5/memory/ops_digest"]
+
+
+def test_export_ops_digest_defaults(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/memory/ops_digest":
+            body = json.loads(rec["body"].decode())
+            assert body["window"] == "day"
+            assert body["horizon"] == "ops"
+            return 200, json.dumps(
+                {"window": "day", "horizon": "ops", "patterns": [], "receipts": []}
+            ).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.export_ops_digest("dept.ops")
+    assert resp.path == "/v1/memory/ops_digest"
+    assert resp.window == "day"
+    assert resp.horizon == "ops"
+
+
+def test_export_ops_digest_validation() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
+    with pytest.raises(ClientError, match="tenant_id required"):
+        nc.export_ops_digest("")

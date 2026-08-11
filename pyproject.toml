@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iomeshclient"
-version = "0.2.0"
-description = "Official Python client SDK for I/O Mesh (HTTP: connect, publish, streams, KV, memory helpers, connectorsdk)"
+version = "0.3.0"
+description = "Official Python client SDK for I/O Mesh (HTTP + Kafka Produce subset: connect, publish, streams, KV, memory, connectorsdk, wait_ready)"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [{ name = "IOMesh Technology Ltd." }]
-keywords = ["iomesh", "i/o mesh", "event streams", "client-sdk"]
+keywords = ["iomesh", "i/o mesh", "event streams", "client-sdk", "kafka"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
@@ -30,6 +30,7 @@ Homepage = "https://iome.sh"
 Repository = "https://github.com/iome-sh/iomesh-client-sdk-python"
 Documentation = "https://github.com/iome-sh/iomesh-client-sdk-python#readme"
 Issues = "https://github.com/iome-sh/iomesh-client-sdk-python/issues"
+Changelog = "https://github.com/iome-sh/iomesh-client-sdk-python/blob/main/CHANGELOG.md"
 "Go SDK" = "https://github.com/iome-sh/iomesh-client-sdk-go"
 
 [project.optional-dependencies]
@@ -39,7 +40,16 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 packages = ["src/iomeshclient"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/iomeshclient", "tests", "examples", "README.md", "LICENSE", "CHANGELOG.md"]
+include = [
+  "src/iomeshclient",
+  "tests",
+  "examples",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+  "RELEASING.md",
+  "pyproject.toml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
