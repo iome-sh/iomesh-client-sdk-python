@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-08-11
+
+Async memory recall + `connect_from_env` residual polish — wire parity with Go `RequestMemoryRecall` / `RequestMemoryRecallFull`; env-based connect helper (stdlib only).
+
+### Added
+
+- **Async memory recall** — `MemoryRecallRequest`; `Client.request_memory_recall(tenant_id, query, limit=0)` and `request_memory_recall_full(req)` → publish stream `MEMORY_RPC`, subject `{tenant}.memory.retrieve.request`, JSON body type `memory_recall` (optional `session_id` / `limit`)
+- **`connect_from_env()`** — reads `IOMESH_URL` (required), optional `IOMESH_TENANT` / `IOMESH_ORG` / `IOMESH_WORKSPACE` / `IOMESH_BEARER_TOKEN` or `IOMESH_TOKEN` / `IOMESH_TIMEOUT`; clear `ClientError` when URL missing
+- **Exports** — `MemoryRecallRequest`, `STREAM_MEMORY_RPC`, `STREAM_MEMORY_INGEST`, `connect_from_env`
+- **Tests** — mock HTTP publish path for recall; monkeypatch env for `connect_from_env`
+- **User-Agent** — `iomesh-client-sdk-python/0.9.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- Async recall is **edge MEMORY_RPC publish** only — not invent product Memory GA · dual_write **OFF** by default elsewhere · Kafka Produce subset only
+- `connect_from_env` is convenience wiring for local/stage scripts; no network I/O on connect
+
 ## [0.8.0] — 2026-08-11
 
 Liveview / v3 registry residual polish — processor register + list live views; wire parity with Go `RegisterProcessor` / `ListLiveViews` (stdlib only).

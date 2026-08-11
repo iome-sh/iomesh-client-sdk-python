@@ -13,10 +13,12 @@ from urllib.parse import unquote
 import pytest
 
 from iomeshclient import (
+    STREAM_MEMORY_RPC,
     ClientError,
     ConnectOptions,
     MemoryEntityRef,
     MemoryEnvelope,
+    MemoryRecallRequest,
     MemoryRetrieveRequest,
     connect,
 )
@@ -455,3 +457,92 @@ def test_export_ops_digest_validation() -> None:
     nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
     with pytest.raises(ClientError, match="tenant_id required"):
         nc.export_ops_digest("")
+
+
+# --- async MEMORY_RPC recall (parity Go RequestMemoryRecall / Full) ---
+
+
+def test_request_memory_recall_full_session_id(broker) -> None:
+    """Parity: Go TestRequestMemoryRecallFullSessionID."""
+    captured: dict[str, Any] = {}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["path"] == "/v1/streams/MEMORY_RPC/publish"
+        body = json.loads(rec["body"].decode())
+        captured["subject"] = body["subject"]
+        payload = json.loads(base64.b64decode(body["payload"]))
+        captured["payload"] = payload
+        return 200, json.dumps(
+            {"stream": "MEMORY_RPC", "seq": 2, "subject": body["subject"]}
+        ).encode(), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    ack = nc.request_memory_recall_full(
+        MemoryRecallRequest(
+            tenant_id="dept.research",
+            query="find notes",
+            limit=8,
+            session_id="dept.research.mesh-dogfood",
+        )
+    )
+    assert ack.seq == 2
+    assert ack.stream == STREAM_MEMORY_RPC
+    assert captured["subject"] == "dept.research.memory.retrieve.request"
+    p = captured["payload"]
+    assert p["type"] == "memory_recall"
+    assert p["tenant_id"] == "dept.research"
+    assert p["query"] == "find notes"
+    assert p["limit"] == 8
+    assert p["session_id"] == "dept.research.mesh-dogfood"
+
+
+def test_request_memory_recall_short_form(broker) -> None:
+    captured: dict[str, Any] = {}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["path"] == f"/v1/streams/{STREAM_MEMORY_RPC}/publish"
+        body = json.loads(rec["body"].decode())
+        captured["subject"] = body["subject"]
+        payload = json.loads(base64.b64decode(body["payload"]))
+        captured["payload"] = payload
+        return 200, json.dumps(
+            {"stream": "MEMORY_RPC", "seq": 1, "subject": body["subject"]}
+        ).encode(), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    ack = nc.request_memory_recall("dept.ops", "lease rotation", limit=5)
+    assert ack.seq == 1
+    assert captured["subject"] == "dept.ops.memory.retrieve.request"
+    p = captured["payload"]
+    assert p["type"] == "memory_recall"
+    assert p["query"] == "lease rotation"
+    assert p["limit"] == 5
+    assert "session_id" not in p
+
+
+def test_request_memory_recall_omits_zero_limit(broker) -> None:
+    captured: dict[str, Any] = {}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        body = json.loads(rec["body"].decode())
+        captured["payload"] = json.loads(base64.b64decode(body["payload"]))
+        return 200, json.dumps({"stream": "MEMORY_RPC", "seq": 1}).encode(), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    nc.request_memory_recall("dept.x", "q", limit=0)
+    assert "limit" not in captured["payload"]
+
+
+def test_request_memory_recall_validation() -> None:
+    nc = connect(ConnectOptions(url="http://127.0.0.1:9"))
+    with pytest.raises(ClientError, match="tenant_id required"):
+        nc.request_memory_recall("", "q")
+    with pytest.raises(ClientError, match="query required"):
+        nc.request_memory_recall("dept.x", "")
+    with pytest.raises(ClientError, match="query required"):
+        nc.request_memory_recall_full(
+            MemoryRecallRequest(tenant_id="dept.x", query="  ")
+        )

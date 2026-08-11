@@ -1,7 +1,8 @@
-"""Memory helpers — edge async ingest + optional sync dual_write + related/ops_digest.
+"""Memory helpers — edge async ingest/recall + optional sync dual_write + related/ops_digest.
 
 Honesty:
 - dual_write **OFF** by default (sync=False): local-primary MEMORY_INGEST publish only
+- async MEMORY_RPC recall is **edge publish only** · not invent Memory GA / freemium palace
 - multi-hop related is **lite** (EntityGraph BFS) · not full graph RAG / KG · not Memory GA
 - ops_digest: ops GA-path framing · knowledge/analytical Beta · never invent GA
 - Not freemium palace · not product Memory GA · not control-plane GA
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
 MEMORY_ENVELOPE_INGEST = "memory_ingest"
 MEMORY_ENVELOPE_RECALL = "memory_recall"
 STREAM_MEMORY_INGEST = "MEMORY_INGEST"
+STREAM_MEMORY_RPC = "MEMORY_RPC"
 
 PATH_MEMORY_INGEST_V1 = "/v1/memory/ingest"
 PATH_MEMORY_INGEST_V5 = "/v5/memory/ingest"
@@ -122,6 +124,19 @@ class MemoryRetrieveRequest:
 
 
 @dataclass
+class MemoryRecallRequest:
+    """Async MEMORY_RPC publish body (request_memory_recall / request_memory_recall_full).
+
+    Edge publish only — not invent Memory GA · dual_write OFF elsewhere · not freemium palace.
+    """
+
+    tenant_id: str = ""
+    query: str = ""
+    limit: int = 0
+    session_id: str = ""  # optional temporal correlation (parity with Go / iomesh-tui dogfood)
+
+
+@dataclass
 class MemoryRetrieveResponse:
     """Sync retrieve / related JSON body."""
 
@@ -192,7 +207,46 @@ class MemoryOpsDigestResponse:
 
 
 class MemoryClientMethods:
-    """Mixin: Client memory helpers (Go PublishMemoryIngest / DualWrite / Ingest / Retrieve)."""
+    """Mixin: Client memory helpers (Go PublishMemoryIngest / DualWrite / Recall / Retrieve)."""
+
+    def request_memory_recall(
+        self, tenant_id: str, query: str, limit: int = 0
+    ) -> PubAck:
+        """Publish async memory_recall to MEMORY_RPC.
+
+        For session correlation use :meth:`request_memory_recall_full`. For sync hits
+        use :meth:`retrieve_memory`. Edge publish only — not invent Memory GA.
+        """
+        return self.request_memory_recall_full(
+            MemoryRecallRequest(tenant_id=tenant_id, query=query, limit=limit)
+        )
+
+    def request_memory_recall_full(self, req: MemoryRecallRequest) -> PubAck:
+        """Publish async MEMORY_RPC with optional session_id (TUI dogfood parity).
+
+        Stream ``MEMORY_RPC``, subject ``{tenant}.memory.retrieve.request``, JSON body
+        type ``memory_recall``. Not product Memory GA · dual_write OFF elsewhere.
+        """
+        tenant_id = (req.tenant_id or "").strip()
+        if not tenant_id:
+            raise ClientError("iomeshclient: tenant_id required")
+        query = (req.query or "").strip()
+        if not query:
+            raise ClientError("iomeshclient: query required")
+
+        body: dict[str, Any] = {
+            "type": MEMORY_ENVELOPE_RECALL,
+            "tenant_id": tenant_id,
+            "query": query,
+        }
+        if req.limit > 0:
+            body["limit"] = req.limit
+        session_id = (req.session_id or "").strip()
+        if session_id:
+            body["session_id"] = session_id
+        raw = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        subject = f"{tenant_id}.memory.retrieve.request"
+        return self.publish(STREAM_MEMORY_RPC, subject, raw)  # type: ignore[attr-defined]
 
     def publish_memory_ingest(self, tenant_id: str, env: MemoryEnvelope) -> PubAck:
         """Publish memory_ingest envelope to MEMORY_INGEST subject {tenant}.memory.ingest.turn."""

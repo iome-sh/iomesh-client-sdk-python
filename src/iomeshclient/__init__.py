@@ -27,6 +27,7 @@ from .client import (
     Subscription,
     WaitReadyResult,
     connect,
+    connect_from_env,
 )
 from .context import (
     ContextResult,
@@ -56,6 +57,8 @@ from .liveview import (
     ProcessorConfig,
 )
 from .memory import (
+    STREAM_MEMORY_INGEST,
+    STREAM_MEMORY_RPC,
     DualWriteMemoryResult,
     MemoryEntityRef,
     MemoryEnvelope,
@@ -66,6 +69,7 @@ from .memory import (
     MemoryOpsDigestPattern,
     MemoryOpsDigestReceipt,
     MemoryOpsDigestResponse,
+    MemoryRecallRequest,
     MemoryRetrieveRequest,
     MemoryRetrieveResponse,
 )
@@ -104,6 +108,8 @@ __all__ = [
     "PROCESSOR_TYPE_FILTER",
     "PROCESSOR_TYPE_MAP",
     "STREAM_DEPT",
+    "STREAM_MEMORY_INGEST",
+    "STREAM_MEMORY_RPC",
     "TYPE_DEPT_AGENT_LLM_CALL",
     "VERSION",
     "APIError",
@@ -136,6 +142,7 @@ __all__ = [
     "MemoryOpsDigestPattern",
     "MemoryOpsDigestReceipt",
     "MemoryOpsDigestResponse",
+    "MemoryRecallRequest",
     "MemoryRetrieveRequest",
     "MemoryRetrieveResponse",
     "Msg",
@@ -152,6 +159,7 @@ __all__ = [
     "WaitReadyResult",
     "aggregate_connection_result",
     "connect",
+    "connect_from_env",
     "format_bucket_info",
     "format_catalog",
     "format_connection_status",

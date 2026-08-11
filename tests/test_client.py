@@ -20,6 +20,7 @@ from iomeshclient import (
     CreateConsumerConfig,
     StreamConfig,
     connect,
+    connect_from_env,
 )
 from iomeshclient.client import DEFAULT_USER_AGENT
 
@@ -156,6 +157,69 @@ def test_connect_no_network_io() -> None:
     assert nc.base_url == "http://127.0.0.1:1"
 
 
+# --- connect_from_env ---
+
+
+def test_connect_from_env_requires_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("IOMESH_URL", raising=False)
+    with pytest.raises(ClientError, match="IOMESH_URL required"):
+        connect_from_env()
+    monkeypatch.setenv("IOMESH_URL", "   ")
+    with pytest.raises(ClientError, match="IOMESH_URL required"):
+        connect_from_env()
+
+
+def test_connect_from_env_reads_optional_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IOMESH_URL", "http://127.0.0.1:8422/")
+    monkeypatch.setenv("IOMESH_TENANT", "dept.engineering")
+    monkeypatch.setenv("IOMESH_ORG", "acme-org")
+    monkeypatch.setenv("IOMESH_WORKSPACE", "ws_default")
+    monkeypatch.setenv("IOMESH_BEARER_TOKEN", "secret-token")
+    monkeypatch.setenv("IOMESH_TIMEOUT", "12.5")
+    nc = connect_from_env()
+    assert nc.base_url == "http://127.0.0.1:8422"
+    assert nc.tenant == "dept.engineering"
+    assert nc.org == "acme-org"
+    assert nc.workspace == "ws_default"
+    assert nc.bearer_token == "secret-token"
+    assert nc.timeout == 12.5
+
+
+def test_connect_from_env_token_alias_and_bearer_wins(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("IOMESH_URL", "https://mesh.example.com")
+    monkeypatch.delenv("IOMESH_BEARER_TOKEN", raising=False)
+    monkeypatch.setenv("IOMESH_TOKEN", "legacy-token")
+    nc = connect_from_env()
+    assert nc.bearer_token == "legacy-token"
+
+    monkeypatch.setenv("IOMESH_BEARER_TOKEN", "primary")
+    monkeypatch.setenv("IOMESH_TOKEN", "legacy-token")
+    nc2 = connect_from_env()
+    assert nc2.bearer_token == "primary"
+
+
+def test_connect_from_env_explicit_mapping() -> None:
+    nc = connect_from_env(
+        {
+            "IOMESH_URL": "http://127.0.0.1:9",
+            "IOMESH_TENANT": "t1",
+        }
+    )
+    assert nc.base_url == "http://127.0.0.1:9"
+    assert nc.tenant == "t1"
+    assert nc.org == ""
+    assert nc.timeout == 30.0
+
+
+def test_connect_from_env_invalid_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IOMESH_URL", "http://127.0.0.1:8422")
+    monkeypatch.setenv("IOMESH_TIMEOUT", "not-a-float")
+    with pytest.raises(ClientError, match="IOMESH_TIMEOUT invalid"):
+        connect_from_env()
+
+
 # --- auth headers ---
 
 
@@ -188,7 +252,7 @@ def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
     assert captured["auth"] == "Bearer test-token"
     assert captured["ua"] == f"iomesh-client-sdk-python/{VERSION}"
     assert captured["ua"] == DEFAULT_USER_AGENT
-    assert captured["ua"] == "iomesh-client-sdk-python/0.8.0"
+    assert captured["ua"] == "iomesh-client-sdk-python/0.9.0"
 
 
 def test_headers_omitted_when_unset(broker) -> None:
@@ -198,7 +262,7 @@ def test_headers_omitted_when_unset(broker) -> None:
         assert "x-iomesh-org" not in h
         assert "x-iomesh-workspace" not in h
         assert "authorization" not in h
-        assert h.get("user-agent") == "iomesh-client-sdk-python/0.8.0"
+        assert h.get("user-agent") == "iomesh-client-sdk-python/0.9.0"
         return 200, b"", {}
 
     broker.set_handler(handler)
@@ -621,4 +685,4 @@ def test_ready_both_missing(broker) -> None:
 
 
 def test_version_constant() -> None:
-    assert VERSION == "0.8.0"
+    assert VERSION == "0.9.0"
