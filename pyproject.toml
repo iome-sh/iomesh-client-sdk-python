@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iomeshclient"
-version = "0.1.0"
-description = "Official Python client SDK for I/O Mesh (HTTP: connect, publish, streams, pull consumers, health)"
+version = "0.2.0"
+description = "Official Python client SDK for I/O Mesh (HTTP: connect, publish, streams, KV, memory helpers, connectorsdk)"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

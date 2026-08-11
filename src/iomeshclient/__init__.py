@@ -20,18 +20,44 @@ from .client import (
     connect,
 )
 from .errors import APIError, ClientError
+from .kv import (
+    BucketInfo,
+    CreateBucketConfig,
+    KVEntry,
+    PutResult,
+)
+from .memory import (
+    DualWriteMemoryResult,
+    MemoryEntityRef,
+    MemoryEnvelope,
+    MemoryHit,
+    MemoryIngestResponse,
+    MemoryRetrieveRequest,
+    MemoryRetrieveResponse,
+)
 
 __all__ = [
     "VERSION",
     "APIError",
+    "BucketInfo",
     "Client",
     "ClientError",
     "ConnectOptions",
     "ConsumerInfo",
+    "CreateBucketConfig",
     "CreateConsumerConfig",
+    "DualWriteMemoryResult",
+    "KVEntry",
+    "MemoryEntityRef",
+    "MemoryEnvelope",
+    "MemoryHit",
+    "MemoryIngestResponse",
+    "MemoryRetrieveRequest",
+    "MemoryRetrieveResponse",
     "Msg",
     "PubAck",
     "PullSubscribeConfig",
+    "PutResult",
     "StreamConfig",
     "StreamInfo",
     "Subscription",

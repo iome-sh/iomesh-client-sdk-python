@@ -18,8 +18,10 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from .errors import APIError, ClientError
+from .kv import KVClientMethods
+from .memory import MemoryClientMethods
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
@@ -119,8 +121,8 @@ class Msg:
         self._sub.nack(self.seq)
 
 
-class Client:
-    """Talks to an I/O Mesh broker over HTTP."""
+class Client(KVClientMethods, MemoryClientMethods):
+    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory helpers)."""
 
     def __init__(
         self,
