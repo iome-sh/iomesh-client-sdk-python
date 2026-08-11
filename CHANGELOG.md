@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-10
+
+Catalog + policy evaluate helpers (residual polish) — wire parity with Go `ListCatalog` / `GetCatalogProduct` / `EvaluatePolicy` (stdlib only, fail-open).
+
+### Added
+
+- **Catalog** — `list_catalog(query="")` → `CatalogResult` (products + source/detail); path cascade matching Go `defaultCatalogPaths` (`/v1/catalog/data-products`, `/v1/catalog/products`, `/v17/portal/catalog/data-products`, `/v16/portal/catalog/marketing/data-products`); fail-open empty when no path succeeds
+- **`get_catalog_product(id)`** — portal detail → mesh detail → list filter fallback; returns `(CatalogProduct, CatalogResult)`
+- **Types** — `CatalogProduct` (portal alias normalize: mesh_layer / subject_pattern / summary / sample_subjects), `CatalogResult`
+- **Format helpers** — `format_catalog`, `format_product_detail` (operator/CLI thin views)
+- **Policy evaluate** — `evaluate_policy(PolicyInput)` → `PolicyDecision`; `POST /v1/policy/evaluate`; modes `off` | `advisory` | `enforce`; auto `action=tool.{tool}` when action empty; 404 → Source `unavailable`; transport/non-OK → fail-open; `should_block_tool()` only enforce + mesh deny; `summary()` operator string
+- **Constants** — `POLICY_OFF`, `POLICY_ADVISORY`, `POLICY_ENFORCE`, `normalize_policy_mode`
+- **Tests** — `test_catalog.py`, `test_policy.py` (mock HTTP broker)
+- **User-Agent** — `iomesh-client-sdk-python/0.4.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- Catalog / policy are **Beta** discovery + tool-gate helpers; fail-open when broker missing paths
+- dual_write **OFF** by default elsewhere · Kafka Produce subset only
+
 ## [0.3.0] — 2026-08-10
 
 Kafka Produce subset, `wait_ready`, memory related + ops_digest, PyPI publish prep — wire parity with Go `kafka` / `WaitReady*` / memory related & ops_digest (stdlib only).

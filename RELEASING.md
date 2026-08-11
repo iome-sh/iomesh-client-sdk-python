@@ -20,11 +20,11 @@ repository secret — **do not commit tokens**.
 ```bash
 # from a clean main tip after the version PR is merged
 git checkout main && git pull --ff-only
-git tag -a v0.3.0 -m "v0.3.0: Kafka Produce subset, wait_ready, memory related/ops_digest"
-git push origin v0.3.0
+git tag -a v0.4.0 -m "v0.4.0: catalog helpers, policy evaluate"
+git push origin v0.4.0
 ```
 
-Then create a GitHub Release from the tag (UI or `gh release create v0.3.0`).
+Then create a GitHub Release from the tag (UI or `gh release create v0.4.0`).
 
 The optional workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
 runs on `release: published` (and `workflow_dispatch`) and uploads sdist + wheel
@@ -55,8 +55,8 @@ TWINE_USERNAME=__token__ TWINE_PASSWORD="$TESTPYPI_TOKEN" \
 ## Verify
 
 ```bash
-python3 -m pip install -U iomeshclient==0.3.0
-python3 -c "from iomeshclient import VERSION, KafkaClient; print(VERSION, KafkaClient)"
+python3 -m pip install -U iomeshclient==0.4.0
+python3 -c "from iomeshclient import VERSION, PolicyInput, format_catalog; print(VERSION, PolicyInput, format_catalog)"
 ```
 
 ## Honesty

@@ -10,7 +10,7 @@ Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` strea
 
 This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-| Capability (v0.3) | Notes |
+| Capability (v0.4) | Notes |
 |-------------------|--------|
 | `connect` + tenant / org / workspace / bearer headers | No network I/O on connect |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
@@ -18,16 +18,20 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
 | **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`retrieve_memory_related`**, **`export_ops_digest`** |
+| **Catalog** | `list_catalog` / `get_catalog_product` — broker + portal path cascade; fail-open |
+| **Policy evaluate** | `evaluate_policy` → `PolicyDecision` (`should_block_tool` / `summary`); fail-open |
 | **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
 
-Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk). Residual **Next**: full consumer Kafka, richer memory surfaces when product-ready, live PyPI green when token is configured.
+Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
+
+**Residual Next:** live PyPI publish (token residual) · Kafka consumer residual · tool-marketing adopt optional · richer memory when product-ready.
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
-> **User-Agent:** `iomesh-client-sdk-python/0.3.0`  
-> **Status:** public OSS **v0.3.0** (pre-1.0, **Beta**)  
+> **User-Agent:** `iomesh-client-sdk-python/0.4.0`  
+> **Status:** public OSS **v0.4.0** (pre-1.0, **Beta**)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Requirements
@@ -152,6 +156,40 @@ print(digest.window, len(digest.patterns), digest.honesty)
 
 Honesty: not freemium palace · not product Memory GA · not control-plane GA · dual_write OFF elsewhere.
 
+## Catalog (fail-open)
+
+Discover governed data products via broker catalog and/or portal federation. Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). Soft failures return empty `CatalogResult` with `source=fail-open` — not control-plane GA.
+
+```python
+from iomeshclient import format_catalog, format_product_detail
+
+res = nc.list_catalog("")  # optional query / mesh_layer filter
+print(format_catalog(res))
+for p in res.products:
+    print(p.id, p.layer, p.subject)
+
+product, meta = nc.get_catalog_product("ops-incidents")
+print(format_product_detail(product, meta))
+```
+
+## Policy evaluate (fail-open)
+
+Remote tool policy (`POST /v1/policy/evaluate`). Mode `off` skips the network. Enforce only blocks when mesh explicitly denies (`should_block_tool`).
+
+```python
+from iomeshclient import POLICY_ENFORCE, POLICY_ADVISORY, PolicyInput
+
+dec = nc.evaluate_policy(
+    PolicyInput(tool="run_shell", mode=POLICY_ENFORCE)
+)
+if dec.should_block_tool():
+    print("blocked:", dec.summary())
+else:
+    print(dec.summary())  # allow / advisory deny still fail-open for tools
+```
+
+Modes: `off` (default) · `advisory` · `enforce`. Missing broker path → `source=unavailable` or `fail-open` (Allow true).
+
 ## Kafka Produce subset
 
 Produce-only mesh Kafka protocol client for integrations / pilots (not a full Kafka consumer):
@@ -228,8 +266,15 @@ print(result.elapsed_sec, result.attempts)
 - **Beta / pre-1.0** — APIs may change before 1.0.
 - **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**.
 - **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
+- **Catalog / policy fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
 - **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
 - **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
+
+## Residual Next
+
+- **Live PyPI** — package/version ready; publish gated on `secrets.PYPI_TOKEN` residual (see [RELEASING.md](RELEASING.md)).
+- **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
+- **tool-marketing adopt optional** — thin adapter only when real mesh I/O (e.g. outbox → aion ingest) is wired; not a GTM rewrite vehicle.
 
 ## Related
 
