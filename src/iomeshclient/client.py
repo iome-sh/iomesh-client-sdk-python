@@ -22,12 +22,13 @@ from .catalog import CatalogClientMethods
 from .context import ContextClientMethods
 from .errors import APIError, ClientError
 from .kv import KVClientMethods
+from .liveview import LiveViewClientMethods
 from .memory import MemoryClientMethods
 from .metering import MeteringClientMethods
 from .policy import PolicyClientMethods
 from .status import StatusClientMethods
 
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
@@ -182,8 +183,9 @@ class Client(
     ContextClientMethods,
     StatusClientMethods,
     MeteringClientMethods,
+    LiveViewClientMethods,
 ):
-    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory, metering, catalog, …)."""
+    """Talks to an I/O Mesh broker over HTTP (streams, KV, memory, metering, registry, …)."""
 
     def __init__(
         self,

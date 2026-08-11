@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-08-11
+
+Liveview / v3 registry residual polish — processor register + list live views; wire parity with Go `RegisterProcessor` / `ListLiveViews` (stdlib only).
+
+### Added
+
+- **Liveview / registry** — `ProcessorConfig`, `DataProduct` (minimal), `LiveView`; constants `PROCESSOR_TYPE_FILTER` / `MAP` / `ENRICH`
+- **`Client.register_processor(cfg)`** — `POST /v3/registry/processors`; **409 conflict = success** (idempotent re-register)
+- **`Client.list_live_views(tenant_id)`** — `GET /v3/registry/liveviews?tenant_id=`; empty body → `[]`; non-2xx → `APIError` (not fail-open)
+- **Exports** — `ProcessorConfig`, `DataProduct`, `LiveView`, processor type constants
+- **Tests** — `test_liveview.py` mock HTTP register + list path
+- **User-Agent** — `iomesh-client-sdk-python/0.8.0`
+
+### Honesty
+
+- MIT edge client only · **not** freemium palace · **not** control-plane GA · **not** Memory GA invent
+- Registry helpers are **edge HTTP** only — **not** invent liveview product GA · dual_write **OFF** by default elsewhere · Kafka Produce subset only
+- List is explicit (raises on non-2xx); not fail-open catalog/policy/context semantics
+
 ## [0.7.0] — 2026-08-11
 
 Metering residual polish — dept.* organizational heartbeat / ops pulse emit helpers; wire parity with Go `EmitDeptEvent` / `EmitLLMCall` (stdlib only, publish path).
