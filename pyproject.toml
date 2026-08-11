@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iomeshclient"
+version = "0.1.0"
+description = "Official Python client SDK for I/O Mesh (HTTP: connect, publish, streams, pull consumers, health)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "IOMesh Technology Ltd." }]
+keywords = ["iomesh", "i/o mesh", "event streams", "client-sdk"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Libraries",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://iome.sh"
+Repository = "https://github.com/iome-sh/iomesh-client-sdk-python"
+Documentation = "https://github.com/iome-sh/iomesh-client-sdk-python#readme"
+Issues = "https://github.com/iome-sh/iomesh-client-sdk-python/issues"
+"Go SDK" = "https://github.com/iome-sh/iomesh-client-sdk-go"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/iomeshclient"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/iomeshclient", "tests", "examples", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "examples"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "RUF"]
+ignore = ["UP045"]  # Optional[] is fine for 3.10+ readability parity with Go SDK docs
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["EXE001", "BLE001", "T201"]
+"tests/*" = ["BLE001"]
