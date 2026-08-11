@@ -188,7 +188,7 @@ def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
     assert captured["auth"] == "Bearer test-token"
     assert captured["ua"] == f"iomesh-client-sdk-python/{VERSION}"
     assert captured["ua"] == DEFAULT_USER_AGENT
-    assert captured["ua"] == "iomesh-client-sdk-python/0.5.0"
+    assert captured["ua"] == "iomesh-client-sdk-python/0.6.0"
 
 
 def test_headers_omitted_when_unset(broker) -> None:
@@ -198,7 +198,7 @@ def test_headers_omitted_when_unset(broker) -> None:
         assert "x-iomesh-org" not in h
         assert "x-iomesh-workspace" not in h
         assert "authorization" not in h
-        assert h.get("user-agent") == "iomesh-client-sdk-python/0.5.0"
+        assert h.get("user-agent") == "iomesh-client-sdk-python/0.6.0"
         return 200, b"", {}
 
     broker.set_handler(handler)
@@ -364,7 +364,19 @@ def test_create_consumer_and_fetch_decode_ack(broker) -> None:
             body = json.loads(rec["body"].decode("utf-8"))
             assert body["name"] == "c1"
             assert body.get("filter_subject") == "dept.events.>"
-            return 201, json.dumps({"stream": "EVENTS", "name": "c1"}).encode(), {}
+            return (
+                201,
+                json.dumps(
+                    {
+                        "stream": "EVENTS",
+                        "name": "c1",
+                        "ack_floor": 42,
+                        "pending_count": 3,
+                        "filter_subject": "dept.events.>",
+                    }
+                ).encode(),
+                {},
+            )
         if method == "POST" and path == "/v1/streams/EVENTS/consumers/c1/fetch":
             body = json.loads(rec["body"].decode("utf-8"))
             assert body["batch"] == 2
@@ -394,6 +406,9 @@ def test_create_consumer_and_fetch_decode_ack(broker) -> None:
         CreateConsumerConfig(stream="EVENTS", name="c1", filter_subject="dept.events.>")
     )
     assert info.stream == "EVENTS" and info.name == "c1"
+    assert info.ack_floor == 42
+    assert info.pending_count == 3
+    assert info.filter_subject == "dept.events.>"
 
     msgs = nc.consumer_fetch("EVENTS", "c1", 2)
     assert len(msgs) == 1
@@ -451,6 +466,97 @@ def test_pull_subscribe_creates_consumer(broker) -> None:
     )
     assert sub.stream == "EVENTS" and sub.consumer == "puller"
     assert sub.fetch(1) == []
+
+
+# --- list_stream_messages ---
+
+
+def test_list_stream_messages_ok(broker) -> None:
+    from iomeshclient import ListStreamMessagesOptions
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["method"] == "GET" and rec["path"] == "/v1/streams/EVENTS/messages":
+            assert "from_seq=1" in rec["query"]
+            assert "to_seq=10" in rec["query"]
+            assert "limit=50" in rec["query"]
+            body = {
+                "messages": [
+                    {
+                        "stream": "EVENTS",
+                        "seq": 1,
+                        "subject": "dept.events.created",
+                        "partition": 0,
+                        "payload": base64.b64encode(b"hello").decode("ascii"),
+                        "headers": {"k": "v"},
+                        "timestamp": "2026-07-01T12:00:00Z",
+                    },
+                    {
+                        "stream": "EVENTS",
+                        "seq": 2,
+                        "subject": "dept.events.updated",
+                        "partition": 1,
+                        "payload": "not-valid-base64!!!",
+                        "headers": {},
+                    },
+                ]
+            }
+            return 200, json.dumps(body).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url, tenant="demo.tenant"))
+    msgs = nc.list_stream_messages(
+        "EVENTS",
+        ListStreamMessagesOptions(from_seq=1, to_seq=10, limit=50),
+    )
+    assert len(msgs) == 2
+    assert msgs[0].seq == 1
+    assert msgs[0].subject == "dept.events.created"
+    assert msgs[0].payload == b"hello"
+    assert msgs[0].headers.get("k") == "v"
+    assert msgs[1].payload == b"not-valid-base64!!!"
+    assert msgs[1].partition == 1
+    last = broker.last()
+    assert last["headers"].get("x-iomesh-tenant") == "demo.tenant"
+
+
+def test_list_stream_messages_defaults_and_cap(broker) -> None:
+    from iomeshclient import ListStreamMessagesOptions
+
+    queries: list[str] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v1/streams/EVENTS/messages":
+            queries.append(rec["query"])
+            return 200, json.dumps({"messages": []}).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    assert nc.list_stream_messages("EVENTS") == []
+    assert "from_seq=1" in queries[0]
+    assert "to_seq=0" in queries[0]
+    assert "limit=100" in queries[0]
+
+    nc.list_stream_messages("EVENTS", ListStreamMessagesOptions(limit=5000))
+    assert "limit=1000" in queries[1]
+
+
+def test_list_stream_messages_validation(broker) -> None:
+    nc = connect(ConnectOptions(url=broker.url))
+    with pytest.raises(ClientError, match="stream name required"):
+        nc.list_stream_messages("  ")
+
+
+def test_list_stream_messages_403(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        return 403, b'{"error":"forbidden"}', {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    with pytest.raises(APIError) as ei:
+        nc.list_stream_messages("EVENTS")
+    assert ei.value.status_code == 403
 
 
 # --- health / ready ---
@@ -515,4 +621,4 @@ def test_ready_both_missing(broker) -> None:
 
 
 def test_version_constant() -> None:
-    assert VERSION == "0.5.0"
+    assert VERSION == "0.6.0"

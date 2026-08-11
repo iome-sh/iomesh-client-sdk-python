@@ -20,11 +20,11 @@ repository secret — **do not commit tokens**.
 ```bash
 # from a clean main tip after the version PR is merged
 git checkout main && git pull --ff-only
-git tag -a v0.5.0 -m "v0.5.0: context plane, stream formatters, connection status"
-git push origin v0.5.0
+git tag -a v0.6.0 -m "v0.6.0: KV/msg/consumer formatters, list_stream_messages"
+git push origin v0.6.0
 ```
 
-Then create a GitHub Release from the tag (UI or `gh release create v0.5.0`).
+Then create a GitHub Release from the tag (UI or `gh release create v0.6.0`).
 
 The optional workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
 runs on `release: published` (and `workflow_dispatch`) and uploads sdist + wheel
@@ -55,8 +55,8 @@ TWINE_USERNAME=__token__ TWINE_PASSWORD="$TESTPYPI_TOKEN" \
 ## Verify
 
 ```bash
-python3 -m pip install -U iomeshclient==0.5.0
-python3 -c "from iomeshclient import VERSION, format_context_snippet, format_streams, ConnectionStatus; print(VERSION, format_context_snippet, format_streams, ConnectionStatus)"
+python3 -m pip install -U iomeshclient==0.6.0
+python3 -c "from iomeshclient import VERSION, format_kv_keys, format_msgs, format_consumer_info; print(VERSION, format_kv_keys, format_msgs, format_consumer_info)"
 ```
 
 ## Honesty
