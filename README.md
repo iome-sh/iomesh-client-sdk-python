@@ -213,7 +213,7 @@ related = nc.retrieve_memory_related(
 for hit in related.memories:
     print(hit.id, hit.hop_distance, hit.summary)
 
-# Ops heartbeat digest (ops GA-path framing; knowledge/analytical Beta)
+# Ops heartbeat digest (ops horizon framing; knowledge/analytical Beta; not a Memory Ops Pack)
 digest = nc.export_ops_digest("dept.ops", window="day", horizon="ops")
 print(digest.window, len(digest.patterns), digest.honesty)
 ```
