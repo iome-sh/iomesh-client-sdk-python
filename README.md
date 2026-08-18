@@ -15,16 +15,16 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | `connect` / **`connect_from_env`** + tenant / org / workspace / bearer headers | No network I/O on connect; env reads `IOMESH_*` |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
 | Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
-| Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64 payloads; see `examples/pull_loop.py` |
+| Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64; **ack is served**; nack is a client helper (serving broker may 404). See `examples/pull_loop.py` |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
-| **Memory helpers** | `publish_memory_ingest`, `dual_write_memory_turn` (**OFF** default), `ingest_memory_turn`, `retrieve_memory`, **`request_memory_recall` / `request_memory_recall_full`**, **`retrieve_memory_related`**, **`export_ops_digest`** |
+| **Memory helpers** | Edge publish + optional sidecar HTTP. `dual_write_memory_turn` (**OFF** default). Local memory tools run on the operator machine. **Not Memory GA.** |
 | **Metering** | `emit_dept_event` / `emit_llm_call` → stream `dept` (org heartbeat / ops pulse) |
 | **Liveview / registry** | `register_processor` (409 = success) · `list_live_views(tenant_id)` — explicit errors, not fail-open |
-| **Catalog** | `list_catalog` / `get_catalog_product` — broker + portal path cascade; fail-open |
+| **Catalog** | `list_catalog` / `get_catalog_product` — **data-products** cascade (mesh `/v1` may 404; portal `/v17`/`/v16`); fail-open. Knowledge **Beta**. Listing ≠ Connected. |
 | **Policy evaluate** | `evaluate_policy` → `PolicyDecision` (`should_block_tool` / `summary`); fail-open |
 | **Context** | `query_context` / `context_snippet` / `format_context_snippet` — fail-open prompt injection |
 | **Format + connection status** | streams / KV / msg / consumer formatters; `connection_status` / `format_connection_status` |
-| **connectorsdk** | HMAC verify, subject builders, observation envelope normalize |
+| **connectorsdk** | Local HMAC + subjects + envelope (GitHub-style). **Not** OAuth, not Connected, not mesh connector HTTP. |
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
 | **Typing** | PEP 561 `py.typed` in package/wheel (gradual typing; full mypy CI optional) |
@@ -213,7 +213,7 @@ related = nc.retrieve_memory_related(
 for hit in related.memories:
     print(hit.id, hit.hop_distance, hit.summary)
 
-# Ops heartbeat digest (ops GA-path framing; knowledge/analytical Beta)
+# Ops heartbeat digest (ops horizon framing; knowledge/analytical Beta; not a Memory Ops Pack)
 digest = nc.export_ops_digest("dept.ops", window="day", horizon="ops")
 print(digest.window, len(digest.patterns), digest.honesty)
 ```
@@ -222,7 +222,7 @@ Honesty: not freemium palace · not product Memory GA · not control-plane GA ·
 
 ## Catalog (fail-open)
 
-Discover governed data products via broker catalog and/or portal federation. Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). Soft failures return empty `CatalogResult` with `source=fail-open` — not control-plane GA.
+Discover governed **data products** (not the integrations catalog). Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). On current serving HTTP, mesh `/v1/catalog/*` is not registered (404 → next). Soft failures return empty `CatalogResult` with `source=fail-open` — not control-plane GA. Knowledge layer is **Beta**. Listing ≠ Connected. This wrapper does not expose webhook URLs or OAuth install.
 
 ```python
 from iomeshclient import format_catalog, format_product_detail
@@ -335,7 +335,8 @@ with KafkaClient("127.0.0.1:9423") as kc:
 
 ## connectorsdk
 
-Partner webhook helpers (HMAC + subjects + observation envelope):
+Local partner webhook helpers (GitHub-style HMAC + subjects + observation envelope).
+Not mesh connector HTTP, not OAuth, not Connected:
 
 ```python
 from iomeshclient.connectorsdk import (
@@ -408,8 +409,10 @@ print(status.result, status.health_ms, status.ready_ms)
 
 - **MIT edge client only** — not freemium palace access, not control-plane GA.
 - **Beta / pre-1.0** — APIs may change before 1.0.
-- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**.
+- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**. Local memory HTTP runs on the **operator machine** (sidecar). A mesh-broker URL is not Memory GA (may 404 or return a plan-gate stub `status=accepted` + `note`).
 - **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
+- **Catalog is data-products** — Knowledge **Beta**. Listing ≠ Connected. Not webhook/OAuth wrap. Mesh `/v1/catalog/*` cascade leftover.
+- **Nack** — client helper only; serving broker registers ack. A 404 is honest. `IOMESH_NACK=1` in examples is not live APPLY.
 - **Catalog / policy / context fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
 - **Formatters / connection status** — operator diagnostics only, not product GA surfaces.
 - **Liveview / registry** — edge HTTP helpers only; **not** invent liveview product GA or control-plane GA.
@@ -422,6 +425,7 @@ Active 0.x feature wave is closed. No further “next feature wave” list — o
 
 - **Live PyPI token** — package ready; publish gated on `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)). Do not invent green PyPI.
 - **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
+- **HTTP `/nack`** — helper kept for Go parity; serving broker does not register the route.
 - **True 1.0** — only when gates in [docs/1.0-bar.md](docs/1.0-bar.md) are met; **0.10 ≠ invent 1.0**.
 
 ## API inventory + wrap-up + 1.0 bar

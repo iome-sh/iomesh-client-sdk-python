@@ -8,6 +8,7 @@ Wire parity with Go ``iomeshclient`` context.go:
 - ``format_context_snippet`` renders text + compact ``<iomesh-lineage>`` block
 
 Honesty: MIT edge client · Beta · fail-open context · not invent GA.
+Serving HTTP may not register ``/v1/context/query``; missing path → empty text.
 """
 
 from __future__ import annotations

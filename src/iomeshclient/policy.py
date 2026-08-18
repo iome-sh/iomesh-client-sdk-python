@@ -9,6 +9,7 @@ Wire parity with Go ``iomeshclient`` policy.go:
 - ``should_block_tool`` only when mode is enforce and mesh explicitly denies
 
 Honesty: MIT edge client · Beta · fail-open when broker missing paths · not invent GA.
+Serving HTTP may not register ``/v1/policy/evaluate``; 404 → unavailable (allow).
 This helper never auto-emits dept audit events.
 """
 

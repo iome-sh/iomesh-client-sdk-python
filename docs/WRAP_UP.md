@@ -90,6 +90,9 @@ Active **0.x feature continuum is closed** at v0.10.0. Items below are **parked*
 |-------------|--------|
 | **Live PyPI token** | Package/version ready; publish gated on `secrets.PYPI_TOKEN` (or Trusted Publisher). Do not invent green PyPI. |
 | **Kafka consumer** | Produce subset ships; full consumer/admin remains residual until intentionally scoped. |
+| **HTTP `/nack`** | Client helper / Go parity; serving broker registers ack, not nack. |
+| **Memory sidecar vs broker** | Sync ingest/retrieve/related/ops_digest are operator-local sidecar routes. Broker plan-gate stub ≠ palace write. Not Memory GA. |
+| **Data-products vs integrations** | `list_catalog` is data-products. Knowledge Beta. Listing ≠ Connected. No OAuth/webhook wrap. |
 | **True 1.0** | Only when [1.0-bar.md](1.0-bar.md) required gates are met with evidence. **0.10 ≠ 1.0.** |
 | Optional: strict typing CI | `py.typed` ships; full mypy/pyright gate remains optional. |
 | Optional: tool-marketing adopt | Thin adapter only when real mesh I/O is wired — not a GTM rewrite vehicle. |

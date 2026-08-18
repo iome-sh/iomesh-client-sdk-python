@@ -1,6 +1,11 @@
 """Connector helpers for partner webhook ingress (HMAC, subjects, observation envelopes).
 
 stdlib only. Parity target: Go package github.com/iome-sh/iomesh-client-sdk-go/connectorsdk.
+
+This package is **local** HMAC + subject/envelope helpers (GitHub-style
+``sha256=`` / ``X-Hub-Signature-256``). It does **not** call mesh connector
+HTTP, OAuth install, or portal session routes. Verify ≠ Connected. Knowledge
+connectors stay Beta. Not OAuth-as-webhook.
 """
 
 from .envelope import normalize_envelope, publish_headers
