@@ -46,7 +46,7 @@ For future 1.0 gates (not met yet), see [1.0-bar.md](1.0-bar.md).
 |--------|-----------------|---------|
 | `create_stream` / `ensure_stream` | `POST /v1/streams` (409 → GET) | explicit errors except 409 path |
 | `get_stream` / `list_streams` / `delete_stream` | `/v1/streams…` | |
-| `list_stream_messages(stream, opts?)` | `GET …/messages` | discovery; non-2xx → `APIError` |
+| `list_stream_messages(stream, opts?)` | `GET …/messages` | discovery; replay gated on tenant header or operator replay flag; non-2xx → `APIError` |
 | Types | `StreamConfig`, `StreamInfo`, `StreamMessage`, `ListStreamMessagesOptions` | |
 | Formatters | `format_streams`, `format_stream_detail` | operator diagnostics |
 
@@ -69,7 +69,7 @@ Public lexicon for org-tool events: **heartbeat / pulse** (e.g. on `dept.*`).
 | `create_consumer` / `ensure_consumer` | `POST …/consumers` (409 → name-only) | durable consumer config |
 | `pull_subscribe(PullSubscribeConfig)` | ensure consumer → `Subscription` | |
 | `consumer_fetch` / `Subscription.fetch` | `POST …/fetch` | batch + `max_wait_ms`; base64 decode |
-| `consumer_ack` / `consumer_nack` / `Msg.ack` / `Msg.nack` | `POST …/ack` / `…/nack` | seqs required |
+| `consumer_ack` / `consumer_nack` / `Msg.ack` / `Msg.nack` | `POST …/ack` / `…/nack` | Ack is served. **Nack** is a Go-parity helper; serving broker may 404 (not live APPLY) |
 | Types | `CreateConsumerConfig`, `ConsumerInfo`, `PullSubscribeConfig`, `Subscription`, `Msg` | |
 | Formatters | `format_msg`, `format_msgs`, `format_consumer_info` | operator diagnostics |
 
@@ -94,15 +94,15 @@ Example: [`examples/pull_loop.py`](../examples/pull_loop.py) (needs broker).
 |--------|----------|---------|
 | `publish_memory_ingest` | publish `MEMORY_INGEST` | edge only |
 | `dual_write_memory_turn(..., sync=False)` | async primary; optional sync | **dual_write OFF by default** |
-| `ingest_memory_turn` | sync ingest path | fail-open patterns per Go |
-| `retrieve_memory` | retrieve HTTP/RPC | not Memory GA invent |
+| `ingest_memory_turn` | sync ingest path | **sidecar-on-operator**; broker-only URL may stub `status=accepted` + `note` (keep `note`; not a palace write) |
+| `retrieve_memory` | retrieve HTTP/RPC | sidecar-on-operator · not Memory GA invent |
 | `request_memory_recall` / `request_memory_recall_full` | publish `MEMORY_RPC` subject `{tenant}.memory.retrieve.request` | async fire-and-forget edge publish |
-| `retrieve_memory_related` | multi-hop **lite** | not full graph RAG |
-| `export_ops_digest` | ops digest export | ops framing · knowledge Beta |
+| `retrieve_memory_related` | multi-hop **lite** | sidecar-on-operator · not full graph RAG |
+| `export_ops_digest` | ops digest export | ops horizon framing · knowledge Beta · not a Memory Ops Pack |
 | Types | `MemoryEnvelope`, `MemoryRecallRequest`, `MemoryRetrieveRequest`, hits, ops-digest structs | |
 | Constants | `STREAM_MEMORY_INGEST`, `STREAM_MEMORY_RPC` | |
 
-**Not Memory GA.** Async recall ≠ product Memory GA.
+**Not Memory GA.** Async recall ≠ product Memory GA. Local memory tools run on the operator machine. This client is not Memory GA.
 
 ---
 
@@ -126,7 +126,7 @@ Example: [`examples/emit_llm_call.py`](../examples/emit_llm_call.py).
 | `get_catalog_product(id)` | detail cascade + list filter | returns `(CatalogProduct, CatalogResult)` |
 | Formatters | `format_catalog`, `format_product_detail` | operator views |
 
-**Not** control-plane GA / freemium palace catalog invent.
+**Not** control-plane GA / freemium palace catalog invent. **Data-products only** (not the integrations catalog). Knowledge layer is **Beta**. Listing ≠ Connected. Does not wrap webhook install or OAuth. Mesh `/v1/catalog/*` probes 404 on current serving broker; live list is portal `/v17` (and `/v16` marketing).
 
 ---
 
@@ -134,7 +134,7 @@ Example: [`examples/emit_llm_call.py`](../examples/emit_llm_call.py).
 
 | Method | Behavior | Honesty |
 |--------|----------|---------|
-| `evaluate_policy(PolicyInput)` | `POST /v1/policy/evaluate` | modes `off` / `advisory` / `enforce` |
+| `evaluate_policy(PolicyInput)` | `POST /v1/policy/evaluate` | modes `off` / `advisory` / `enforce`; serving broker may 404 → unavailable |
 | `PolicyDecision.should_block_tool()` | enforce + mesh deny only | soft errors fail-open |
 | `normalize_policy_mode` | helper | |
 | Constants | `POLICY_OFF`, `POLICY_ADVISORY`, `POLICY_ENFORCE` | |
@@ -145,7 +145,7 @@ Example: [`examples/emit_llm_call.py`](../examples/emit_llm_call.py).
 
 | Method | Behavior | Honesty |
 |--------|----------|---------|
-| `query_context(...)` | `POST /v1/context/query` | fail-open empty on soft failure |
+| `query_context(...)` | `POST /v1/context/query` | fail-open empty on soft failure; serving broker may not register the path |
 | `context_snippet(...)` | always `include_lineage=true` | empty string on soft failure |
 | `format_context_snippet` | pure text + lineage block | agent prompt helper, not product GA |
 | Types | `ContextResult`, `LineageRef` | |
@@ -175,7 +175,7 @@ Import: `from iomeshclient import KafkaClient` or `from iomeshclient.kafka impor
 
 ## connectorsdk
 
-Partner webhook helpers (stdlib). Import: `from iomeshclient.connectorsdk import …`.
+Local HMAC + subject/envelope helpers (stdlib). **Not** mesh connector HTTP, OAuth, or Connected. Import: `from iomeshclient.connectorsdk import …`.
 
 | Area | Symbols |
 |------|---------|
@@ -194,7 +194,10 @@ Partner webhook helpers (stdlib). Import: `from iomeshclient.connectorsdk import
 | **Full mypy / pyright CI gate** | `py.typed` present; strict type CI optional residual |
 | **1.0 stability bar** | Explicit checklist in [1.0-bar.md](1.0-bar.md) — **not 1.0 yet** |
 | **Go surface parity matrix** | Expanding; document residual deltas before major |
-| **Memory GA / dual_write product** | dual_write OFF by default · helpers are edge/async |
+| **Memory GA / dual_write product** | dual_write OFF by default · helpers are edge/async · sidecar-on-operator |
+| **HTTP `/nack`** | Client helper exists; serving broker registers ack, not nack (404 is honest) |
+| **Integrations / OAuth / portal session** | Not this SDK. Data-products catalog ≠ Connected. Knowledge Beta. |
+| **Broker `/v1/catalog/*`** | Cascade leftover (404 → portal `/v17` / `/v16`) |
 
 ---
 

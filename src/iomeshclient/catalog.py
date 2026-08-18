@@ -1,10 +1,15 @@
-"""Catalog helpers — governed data-product discovery (broker + portal federation).
+"""Catalog helpers — governed **data-product** discovery (mesh + portal federation).
 
 Wire parity with Go ``iomeshclient`` catalog.go:
 
-- ``list_catalog`` tries broker ``/v1/catalog/*`` then portal ``/v17``/``/v16`` paths
+- ``list_catalog`` tries mesh ``/v1/catalog/*`` then portal ``/v17``/``/v16`` paths
 - ``get_catalog_product`` prefers portal detail, then mesh detail, then list filter
 - Fail-open empty result when no path succeeds (not control-plane GA)
+
+This is the **data-products** catalog (operational / knowledge / analytical
+layers), **not** the integrations/connector catalog. Knowledge layer is **Beta**.
+Listing a product is not Connected, not OAuth-install, and not a webhook URL.
+Do not invent Knowledge GA / customers / live APPLY.
 
 Honesty: MIT edge client · Beta · not freemium palace · not invent GA.
 """
@@ -20,7 +25,11 @@ from typing import Any, Optional
 
 from .errors import APIError, ClientError
 
-# Path cascade matching Go defaultCatalogPaths (broker first, then portal).
+# Path cascade matching Go defaultCatalogPaths (mesh first, then portal).
+# Serving HTTP plane (current main): /v1/catalog/* is not registered on the
+# mesh broker (404 → next). Live list/detail is portal
+# GET /v17/portal/catalog/data-products[/{id}] (plus /v16 marketing list).
+# Keep the /v1 probes for Go-parity fail-open; do not treat a 404 as Connected.
 DEFAULT_CATALOG_PATHS: list[tuple[str, str]] = [
     ("/v1/catalog/data-products", "mesh"),
     ("/v1/catalog/products", "mesh"),

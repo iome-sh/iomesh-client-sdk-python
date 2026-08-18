@@ -4,7 +4,13 @@ Honesty:
 - dual_write **OFF** by default (sync=False): local-primary MEMORY_INGEST publish only
 - async MEMORY_RPC recall is **edge publish only** · not invent Memory GA / freemium palace
 - multi-hop related is **lite** (EntityGraph BFS) · not full graph RAG / KG · not Memory GA
-- ops_digest: ops GA-path framing · knowledge/analytical Beta · never invent GA
+- ops_digest: ops horizon framing · knowledge/analytical Beta · never invent GA
+  or a Memory Ops Pack
+- Sync HTTP ingest/retrieve/related/ops_digest live on the **operator-local memory
+  sidecar**, not as Memory GA on the mesh broker. A broker-only URL may 404 those
+  paths, or return a plan-gate stub (``status=accepted`` + ``note``) that is **not**
+  a palace write.
+- This SDK is a mesh/control-plane HTTP client, not Memory GA.
 - Not freemium palace · not product Memory GA · not control-plane GA
 - Sync ingest is fail-open audit path when sync=True
 """
@@ -70,12 +76,18 @@ class MemoryEnvelope:
 
 @dataclass
 class MemoryIngestResponse:
-    """Sync ingest JSON body from POST /v1|/v5/memory/ingest."""
+    """Sync ingest JSON body from POST /v1|/v5/memory/ingest.
+
+    Sidecar success is typically ``status=ok`` plus ``memory_id``. A mesh-broker
+    plan-gate stub may return ``status=accepted`` with a ``note`` and **no**
+    ``memory_id`` — that is not a palace write and not Memory GA.
+    """
 
     status: str = ""
     memory_id: str = ""
     tier: int = 0
     ingested: int = 0
+    note: str = ""
 
 
 @dataclass
@@ -290,7 +302,12 @@ class MemoryClientMethods:
     def ingest_memory_turn(
         self, tenant_id: str, env: MemoryEnvelope
     ) -> MemoryIngestResponse:
-        """POST try /v1/memory/ingest then /v5/memory/ingest (tenant_id + envelope fields)."""
+        """POST try /v1/memory/ingest then /v5/memory/ingest (tenant_id + envelope fields).
+
+        These paths are served by the operator-local memory sidecar. Pointing the
+        client at a mesh broker URL is not Memory GA: the broker may 404 ``/v1``
+        and return a plan-gate stub on ``/v5`` (keep ``note``; do not invent a write).
+        """
         tenant_id = (tenant_id or "").strip()
         if not tenant_id:
             raise ClientError("iomeshclient: tenant_id required")
@@ -307,6 +324,7 @@ class MemoryClientMethods:
                     memory_id=str(raw.get("memory_id") or ""),
                     tier=int(raw.get("tier") or 0),
                     ingested=int(raw.get("ingested") or 0),
+                    note=str(raw.get("note") or ""),
                 )
             except APIError as e:
                 last_err = e
@@ -325,7 +343,8 @@ class MemoryClientMethods:
     def retrieve_memory(self, req: MemoryRetrieveRequest) -> MemoryRetrieveResponse:
         """Thin sync hybrid recall: POST /v1 then /v5 /memory/retrieve.
 
-        Query may be empty when session_id is set. Not Memory GA.
+        Query may be empty when session_id is set. Sidecar-on-operator.
+        Not Memory GA. A mesh-broker URL typically 404s these paths.
         """
         tenant_id = (req.tenant_id or "").strip()
         query = (req.query or "").strip()
@@ -459,9 +478,11 @@ class MemoryClientMethods:
     ) -> MemoryOpsDigestResponse:
         """Ops heartbeat digest export: POST /v1 then /v5 /memory/ops_digest.
 
-        Honesty: ops GA-path framing · knowledge/analytical Beta · never invent GA ·
-        dual_write OFF · book-demo OFF · not product Memory GA. Human owns irreversible
-        decisions. *window* defaults to ``day``; *horizon* defaults to ``ops``.
+        Honesty: ops horizon framing · knowledge/analytical Beta · never invent GA
+        or a Memory Ops Pack · dual_write OFF · book-demo OFF · not product Memory
+        GA. Human owns irreversible decisions. *window* defaults to ``day``;
+        *horizon* defaults to ``ops``. Sidecar HTTP, not a mesh-broker Memory GA
+        surface.
         """
         tenant_id = (tenant_id or "").strip()
         window = (window or "").strip().lower() or "day"

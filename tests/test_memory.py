@@ -249,7 +249,33 @@ def test_ingest_memory_turn_v1_then_v5(broker) -> None:
     )
     assert resp.memory_id == "mem-99"
     assert resp.ingested == 1
+    assert resp.note == ""
     assert paths == ["/v1/memory/ingest", "/v5/memory/ingest"]
+
+
+def test_ingest_memory_turn_keeps_broker_stub_note(broker) -> None:
+    """Broker plan-gate stub is not a palace write — keep note, do not invent memory_id."""
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        if rec["path"] == "/v5/memory/ingest":
+            return 202, json.dumps(
+                {
+                    "status": "accepted",
+                    "note": "memory ingest gated; sidecar proxy not configured on broker",
+                }
+            ).encode(), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    resp = nc.ingest_memory_turn(
+        "dept.research",
+        MemoryEnvelope(role="user", content="lease note"),
+    )
+    assert resp.status == "accepted"
+    assert resp.memory_id == ""
+    assert resp.ingested == 0
+    assert "sidecar" in resp.note
 
 
 def test_retrieve_memory_thin(broker) -> None:

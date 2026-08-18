@@ -383,6 +383,11 @@ class Client(
 
         Query: from_seq (default 1), to_seq (0=last), limit (default 100, max 1000).
         Empty stream name → ClientError. Non-2xx → APIError (not fail-open).
+
+        Serving broker replay is gated: allowed when ``X-IOMesh-Tenant`` is set
+        (this client sends it when ``ConnectOptions.tenant`` is set) or when the
+        operator enables memory-replay on the broker. Otherwise the server may
+        return 403. This is discovery, not live APPLY.
         """
         stream = (stream or "").strip()
         if not stream:
@@ -579,6 +584,12 @@ class Client(
         self._do_json("POST", path, {"seqs": list(seqs)})
 
     def consumer_nack(self, stream: str, consumer: str, *seqs: int) -> None:
+        """POST ``/v1/streams/{stream}/consumers/{consumer}/nack``.
+
+        Go-parity helper. The serving broker registers create/fetch/ack today;
+        this path may 404 (``APIError``). Do not treat a local mock or example
+        flag as live APPLY.
+        """
         if not stream or not consumer:
             raise ClientError("iomeshclient: stream and consumer required")
         if not seqs:

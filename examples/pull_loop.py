@@ -20,7 +20,8 @@ Env:
   IOMESH_MAX_WAIT_MS fetch max wait ms (default 2000)
   IOMESH_LOOPS       number of fetch iterations (default 3)
   IOMESH_PUBLISH=1   publish one org_heartbeat before the pull loop
-  IOMESH_NACK=1      nack instead of ack (demo only)
+  IOMESH_NACK=1      nack instead of ack (client helper demo only — serving
+                     broker may 404 this path; not live APPLY)
 
 Usage:
   export IOMESH_URL=http://127.0.0.1:8422
@@ -114,7 +115,8 @@ def main() -> int:
     print(
         "note: needs local/stage broker · offline stage smoke ≠ live APPLY · "
         "dual_write not claimed · Beta pre-1.0 · MIT edge client only · "
-        "public lexicon heartbeat/pulse only · durable pull residual demo only"
+        "public lexicon heartbeat/pulse only · durable pull residual demo only · "
+        "nack helper may 404 on serving broker"
     )
     return 0
 
