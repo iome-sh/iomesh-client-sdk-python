@@ -7,18 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Serving HTTP plane notes. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**
+## [0.10.2] — 2026-09-04
+
+Patch: additive `StreamInfo.org_id`, public copy hygiene, and serving-plane honesty. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**
 
 ### Added
 
 - **`StreamInfo.org_id`** — decode JSON `org_id` from `GET /v1/streams` and `GET /v1/streams/{name}` (unknown keys ignored; empty string is shared persist)
 - **`MemoryIngestResponse.note`** — keep the serving-broker stub `note` (do not drop it so `status=accepted` looks like a palace write)
+- **User-Agent** — `iomesh-client-sdk-python/0.10.2`
 
 ### Changed
 
-- **Docs** — public README, examples, API inventory, 0.x status, and Unreleased changelog copy hygiene: strip internal serials, private repository names, and internal workflow phrasing from user-facing docs (#17)
+- **Docs** — public README, examples, API inventory, 0.x status, and changelog copy hygiene: strip internal serials, private repository names, and internal workflow phrasing from user-facing docs (#18)
 - Docs / docstrings: nack is a client helper (broker may 404); catalog is **data-products** (Knowledge Beta; listing ≠ Connected; mesh `/v1/catalog/*` cascade); memory HTTP is sidecar-on-operator; replay requires tenant header or operator replay flag; connectorsdk is local HMAC only
 - `examples/pull_loop.py` — `IOMESH_NACK=1` is a client helper demo (broker may 404)
+- Version bump **0.10.1 → 0.10.2** (additive org_id + copy hygiene; no intentional breaking API changes)
 
 ### Honesty
 
