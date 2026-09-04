@@ -20,7 +20,7 @@ For the future 1.0 checklist (not met yet), see [1.0-bar.md](1.0-bar.md).
 | `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/token/timeout; `IOMESH_REQUIRE_ORG` fail-closes catalog/consume when org is empty |
 | `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent`, `require_org` |
 | `Client` | class | HTTP plane; mixins for KV, memory, metering, catalog, policy, context, liveview, status |
-| `VERSION` / `__version__` | str | e.g. `0.10.1` |
+| `VERSION` / `__version__` | str | e.g. `0.10.3` |
 | `ClientError` / `APIError` | exceptions | Transport / non-2xx |
 
 **Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`; optional `Authorization: Bearer …`  
