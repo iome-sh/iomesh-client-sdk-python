@@ -29,7 +29,7 @@ from .metering import MeteringClientMethods
 from .policy import PolicyClientMethods
 from .status import StatusClientMethods
 
-VERSION = "0.10.2"
+VERSION = "0.10.3"
 DEFAULT_FETCH_MAX_WAIT_MS = 5000
 DEFAULT_TIMEOUT_SEC = 30.0
 DEFAULT_USER_AGENT = f"iomesh-client-sdk-python/{VERSION}"
