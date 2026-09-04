@@ -415,6 +415,103 @@ def test_create_stream_validation() -> None:
         nc.create_stream(StreamConfig(name="EVENTS", subjects=[]))
 
 
+# --- list/get streams (org_id) ---
+
+
+def test_list_streams_org_id_round_trip_and_shared_persist(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["method"] == "GET"
+        assert rec["path"] == "/v1/streams"
+        assert rec["headers"].get("x-iomesh-org") == "org_acme"
+        body = [
+            {
+                "name": "ORG_EVENTS",
+                "subjects": ["dept.events.>"],
+                "org_id": "org_acme",
+                "messages": 3,
+                "future_field": "ignored",
+            },
+            {
+                "name": "GITHUB_EVENTS",
+                "subjects": ["github.>"],
+                "org_id": "",
+                "messages": 10,
+            },
+            {
+                "name": "OPERATIONAL_EVENTS",
+                "subjects": ["ops.>"],
+                "messages": 1,
+            },
+        ]
+        return 200, json.dumps(body).encode("utf-8"), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url, org="org_acme"))
+    streams = nc.list_streams()
+    assert [s.name for s in streams] == [
+        "ORG_EVENTS",
+        "GITHUB_EVENTS",
+        "OPERATIONAL_EVENTS",
+    ]
+    assert streams[0].org_id == "org_acme"
+    assert streams[1].org_id == ""  # empty org_id is shared persist
+    assert streams[2].org_id == ""  # omitted org_id is shared persist
+    assert streams[0].subjects == ["dept.events.>"]
+    assert streams[0].messages == 3
+
+
+def test_list_streams_envelope_org_id(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["path"] == "/v1/streams"
+        body = {
+            "streams": [
+                {"name": "ORG_EVENTS", "org_id": "org_acme"},
+                {"name": "GITHUB_EVENTS", "org_id": ""},
+            ]
+        }
+        return 200, json.dumps(body).encode("utf-8"), {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url))
+    streams = nc.list_streams()
+    assert streams[0].org_id == "org_acme"
+    assert streams[1].org_id == ""  # empty org_id is shared persist
+
+
+def test_get_stream_org_id_round_trip_and_shared_persist(broker) -> None:
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        assert rec["method"] == "GET"
+        if rec["path"] == "/v1/streams/ORG_EVENTS":
+            resp = {
+                "name": "ORG_EVENTS",
+                "subjects": ["dept.events.>"],
+                "org_id": "org_acme",
+                "messages": 3,
+                "future_field": "ignored",
+            }
+            return 200, json.dumps(resp).encode("utf-8"), {}
+        if rec["path"] == "/v1/streams/GITHUB_EVENTS":
+            resp = {"name": "GITHUB_EVENTS", "org_id": "", "subjects": ["github.>"]}
+            return 200, json.dumps(resp).encode("utf-8"), {}
+        if rec["path"] == "/v1/streams/OPERATIONAL_EVENTS":
+            resp = {"name": "OPERATIONAL_EVENTS", "subjects": ["ops.>"]}
+            return 200, json.dumps(resp).encode("utf-8"), {}
+        return 404, b"{}", {}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url, org="org_acme"))
+    owned = nc.get_stream("ORG_EVENTS")
+    assert owned.name == "ORG_EVENTS"
+    assert owned.org_id == "org_acme"
+    assert owned.subjects == ["dept.events.>"]
+    shared = nc.get_stream("GITHUB_EVENTS")
+    assert shared.name == "GITHUB_EVENTS"
+    assert shared.org_id == ""  # empty org_id is shared persist
+    omitted = nc.get_stream("OPERATIONAL_EVENTS")
+    assert omitted.name == "OPERATIONAL_EVENTS"
+    assert omitted.org_id == ""  # omitted org_id is shared persist
+
+
 # --- consumers ---
 
 
