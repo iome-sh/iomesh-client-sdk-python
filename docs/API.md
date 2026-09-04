@@ -45,9 +45,9 @@ For the future 1.0 checklist (not met yet), see [1.0-bar.md](1.0-bar.md).
 | Method | Path / behavior | Honesty |
 |--------|-----------------|---------|
 | `create_stream` / `ensure_stream` | `POST /v1/streams` (409 → GET) | explicit errors except 409 path |
-| `get_stream` / `list_streams` / `delete_stream` | `/v1/streams…` | |
+| `get_stream` / `list_streams` / `delete_stream` | `/v1/streams…` | When `X-IOMesh-Org` is set, hosted brokers return that org's streams plus shared persist; without the header, hosted brokers may reject list/consume |
 | `list_stream_messages(stream, opts?)` | `GET …/messages` | discovery; replay requires tenant header or operator replay flag; non-2xx → `APIError` |
-| Types | `StreamConfig`, `StreamInfo`, `StreamMessage`, `ListStreamMessagesOptions` | |
+| Types | `StreamConfig`, `StreamInfo` (`org_id`; empty = shared persist), `StreamMessage`, `ListStreamMessagesOptions` | |
 | Formatters | `format_streams`, `format_stream_detail` | operator diagnostics |
 
 ---

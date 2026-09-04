@@ -81,6 +81,8 @@ class StreamInfo:
     first_seq: int = 0
     last_seq: int = 0
     description: str = ""
+    # JSON org_id from GET /v1/streams; empty string is shared persist.
+    org_id: str = ""
     # Optional knobs (operator formatters / scrapers; blank when unset).
     max_msgs: Optional[int] = None
     max_age_sec: Optional[int] = None
@@ -758,6 +760,7 @@ def _stream_info_from(raw: Any) -> StreamInfo:
         first_seq=int(raw.get("first_seq") or 0),
         last_seq=int(raw.get("last_seq") or 0),
         description=str(raw.get("description") or ""),
+        org_id=str(raw.get("org_id") or ""),
         max_msgs=int(max_msgs) if max_msgs is not None else None,
         max_age_sec=int(max_age_sec) if max_age_sec is not None else None,
         created_at=_parse_ts(raw.get("created_at")),

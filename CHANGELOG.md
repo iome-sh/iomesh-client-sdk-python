@@ -11,6 +11,7 @@ Serving HTTP plane notes. **Does not declare 1.0 / GA / live PyPI / Memory GA / 
 
 ### Added
 
+- **`StreamInfo.org_id`** — decode JSON `org_id` from `GET /v1/streams` and `GET /v1/streams/{name}` (unknown keys ignored; empty string is shared persist)
 - **`MemoryIngestResponse.note`** — keep the serving-broker stub `note` (do not drop it so `status=accepted` looks like a palace write)
 
 ### Changed
