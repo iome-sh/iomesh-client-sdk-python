@@ -270,6 +270,44 @@ def test_headers_omitted_when_unset(broker) -> None:
     nc.health()
 
 
+def test_require_org_fails_closed_on_fetch_without_org(broker) -> None:
+    def handler(_rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        raise AssertionError("must not call broker when org is required and empty")
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url, require_org=True))
+    with pytest.raises(ClientError, match="X-IOMesh-Org required"):
+        nc.consumer_fetch("EVENTS", "worker", 1)
+    with pytest.raises(ClientError, match="X-IOMesh-Org required"):
+        nc.list_streams()
+
+
+def test_require_org_fetch_sends_header_when_set(broker) -> None:
+    got: dict[str, str] = {}
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        got["org"] = rec["headers"].get("x-iomesh-org", "")
+        return 200, json.dumps({"messages": []}).encode(), {"Content-Type": "application/json"}
+
+    broker.set_handler(handler)
+    nc = connect(ConnectOptions(url=broker.url, org="org_a", require_org=True))
+    assert nc.consumer_fetch("EVENTS", "worker", 1) == []
+    assert got["org"] == "org_a"
+
+
+def test_connect_from_env_require_org_flag() -> None:
+    nc = connect_from_env(
+        {
+            "IOMESH_URL": "http://127.0.0.1:9",
+            "IOMESH_REQUIRE_ORG": "1",
+        }
+    )
+    assert nc.require_org is True
+    assert nc.org == ""
+    nc2 = connect_from_env({"IOMESH_URL": "http://127.0.0.1:9"})
+    assert nc2.require_org is False
+
+
 def test_user_agent_override(broker) -> None:
     got_ua: list[str] = []
 
