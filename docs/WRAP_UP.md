@@ -1,6 +1,6 @@
-# Wrap-up status — 0.x feature continuum closeout
+# 0.x status
 
-> **Honest Beta / MIT edge.** This page closes the active **0.1 → 0.10** feature wave with residual-honest status.
+> **Beta / MIT edge client.** This page summarizes the public **0.1 → 0.10** surface.
 > It does **not** declare **1.0**, invent product GA, or claim live PyPI.
 
 | Framing that remains true | |
@@ -9,10 +9,10 @@
 | Maturity | **Beta** / pre-1.0 (`0.x` may still evolve under SemVer norms) |
 | Memory | dual_write **OFF** by default · **not** Memory GA |
 | Product | **not** freemium palace · **not** control-plane GA |
-| Kafka | **Produce subset** only until a consumer residual is intentionally scoped |
-| 1.0 | Only when gates in [1.0-bar.md](1.0-bar.md) are met with evidence |
+| Kafka | **Produce subset** only until a consumer is intentionally scoped |
+| 1.0 | Only when [1.0-bar.md](1.0-bar.md) is met with evidence |
 
-Current tip: **v0.10.1** (docs wrap-up patch). Feature continuum tip: **v0.10.0**.
+Current version: **v0.10.1** (docs). Feature surface: **v0.10.0**.
 
 ---
 
@@ -31,8 +31,8 @@ Summary of the public `0.x` continuum. Details live in [CHANGELOG.md](../CHANGEL
 | **0.7.0** | Metering (heartbeat / pulse) | `emit_dept_event` / `emit_llm_call` → stream `dept` |
 | **0.8.0** | Liveview / registry | `register_processor` (409 = success); `list_live_views` |
 | **0.9.0** | Async recall + env connect | `request_memory_recall` / `_full`; `connect_from_env` |
-| **0.10.0** | 1.0-readiness residual polish | PEP 561 `py.typed`; [API.md](API.md); [1.0-bar.md](1.0-bar.md); `examples/pull_loop.py` |
-| **0.10.1** | Docs wrap-up closeout | This page + README status park; **no** new feature surface |
+| **0.10.0** | Packaging + inventory | PEP 561 `py.typed`; [API.md](API.md); [1.0-bar.md](1.0-bar.md); `examples/pull_loop.py` |
+| **0.10.1** | Docs | This page + README status; **no** new feature surface |
 
 Parity target remains Go [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + `kafka` + `connectorsdk`.
 
@@ -82,22 +82,19 @@ See [RELEASING.md](../RELEASING.md) for tag + optional PyPI upload when `PYPI_TO
 
 ---
 
-## Residual park list (only)
+## Known limitations
 
-Active **0.x feature continuum is closed** at v0.10.0. Items below are **parked** — not a next feature wave.
-
-| Parked item | Notes |
-|-------------|--------|
-| **Live PyPI token** | Package/version ready; publish gated on `secrets.PYPI_TOKEN` (or Trusted Publisher). Do not invent green PyPI. |
-| **Kafka consumer** | Produce subset ships; full consumer/admin remains residual until intentionally scoped. |
+| Item | Notes |
+|------|--------|
+| **Live PyPI** | Package/version ready; a live upload needs `secrets.PYPI_TOKEN` (or Trusted Publisher). Do not invent a published package. |
+| **Kafka consumer** | Produce subset ships; full consumer/admin is not in scope yet. |
 | **HTTP `/nack`** | Client helper / Go parity; serving broker registers ack, not nack. |
-| **Memory sidecar vs broker** | Sync ingest/retrieve/related/ops_digest are operator-local sidecar routes. Broker plan-gate stub ≠ palace write. Not Memory GA. |
+| **Memory sidecar vs broker** | Sync ingest/retrieve/related/ops_digest are operator-local sidecar routes. A broker `status=accepted` + `note` is not a palace write. Not Memory GA. |
 | **Data-products vs integrations** | `list_catalog` is data-products. Knowledge Beta. Listing ≠ Connected. No OAuth/webhook wrap. |
-| **True 1.0** | Only when [1.0-bar.md](1.0-bar.md) required gates are met with evidence. **0.10 ≠ 1.0.** |
-| Optional: strict typing CI | `py.typed` ships; full mypy/pyright gate remains optional. |
-| Optional: tool-marketing adopt | Thin adapter only when real mesh I/O is wired — not a GTM rewrite vehicle. |
+| **1.0** | Only when [1.0-bar.md](1.0-bar.md) is met with evidence. **0.10 is not 1.0.** |
+| Optional: strict typing CI | `py.typed` ships; full mypy/pyright remains optional. |
 
-Tag/GitHub Release for v0.10.x may trail this docs closeout if publish is deferred — that does not reopen the feature continuum.
+A GitHub Release for v0.10.x may trail this docs page if publish is deferred.
 
 ---
 
@@ -106,11 +103,11 @@ Tag/GitHub Release for v0.10.x may trail this docs closeout if publish is deferr
 | Doc | Role |
 |-----|------|
 | [API.md](API.md) | Public surface inventory |
-| [1.0-bar.md](1.0-bar.md) | Future 1.0 gates (**not 1.0 yet**) |
+| [1.0-bar.md](1.0-bar.md) | Future 1.0 checklist (**not 1.0 yet**) |
 | [CHANGELOG.md](../CHANGELOG.md) | Per-version detail |
 | [RELEASING.md](../RELEASING.md) | Tag / wheel / optional PyPI |
-| [README.md](../README.md) | Operator entry + honesty |
+| [README.md](../README.md) | Install, example, and non-claims |
 
 ---
 
-*Closeout patch for free-eng wrap-up. Remain on **0.x Beta** until a real 1.0 ships under the bar checklist.*
+*Remain on **0.x Beta** until a 1.0 ships under the checklist.*

@@ -21,7 +21,8 @@ Usage:
   python examples/org_heartbeat_publish.py
   IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 
-Offline stage smoke ≠ live APPLY. dual_write is not claimed here.
+Needs a reachable broker. Running this example locally is not a production rollout.
+dual_write is not claimed here.
 """
 
 from __future__ import annotations
@@ -93,7 +94,7 @@ def main() -> int:
 
     print("RESULT=done")
     print(
-        "note: needs local/stage broker · offline stage smoke ≠ live APPLY · "
+        "note: needs local/stage broker · example is not a production rollout · "
         "dual_write not claimed · Beta pre-1.0 · MIT edge client only"
     )
     return 0

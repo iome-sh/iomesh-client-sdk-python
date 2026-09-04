@@ -28,23 +28,22 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
 | Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
 | **Typing** | PEP 561 `py.typed` in package/wheel (gradual typing; full mypy CI optional) |
-| **Docs** | [docs/API.md](docs/API.md) surface inventory · [docs/1.0-bar.md](docs/1.0-bar.md) future gates (**not 1.0 yet**) · [docs/WRAP_UP.md](docs/WRAP_UP.md) 0.x closeout |
+| **Docs** | [docs/API.md](docs/API.md) surface inventory · [docs/1.0-bar.md](docs/1.0-bar.md) future 1.0 checklist (**not 1.0 yet**) · [docs/WRAP_UP.md](docs/WRAP_UP.md) 0.x status |
 
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
 > **User-Agent:** `iomesh-client-sdk-python/0.10.1`  
-> **Status:** public OSS **v0.10.1** (pre-1.0, **Beta** — not 1.0; 0.x feature continuum closed at v0.10.0)  
+> **Status:** public OSS **v0.10.1** (pre-1.0, **Beta** — not 1.0)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
-## Status (wrap-up)
+## Status
 
-The active **0.1 → 0.10** feature continuum is **closed**. See **[docs/WRAP_UP.md](docs/WRAP_UP.md)** for the version summary table, honest install paths (git / Release assets / local wheel — **not** invent live PyPI), and the parked residual list.
+See **[docs/WRAP_UP.md](docs/WRAP_UP.md)** for the 0.1–0.10 summary, install paths (git / Release assets / local wheel — **not** live PyPI), and known limitations.
 
-- Feature tip: **v0.10.0** residual polish toward a future bar  
-- Docs closeout patch: **v0.10.1**  
-- Real **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) gates are met** — **v0.10 does not invent or declare 1.0**
+- Current public surface: **v0.10.0** (docs patch **v0.10.1**)  
+- **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) is met** — **v0.10 does not invent or declare 1.0**
 
 ## Requirements
 
@@ -116,7 +115,7 @@ python examples/org_heartbeat_publish.py
 IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 ```
 
-Needs a local/stage broker. Offline stage smoke ≠ live APPLY.
+Needs a local or stage broker. Running the example locally is not a production rollout.
 
 ## Metering — dept.* heartbeat / pulse
 
@@ -188,7 +187,7 @@ elif res.sync:
 
 # Async MEMORY_RPC recall (edge publish only — not invent Memory GA)
 ack = nc.request_memory_recall("dept.research", "lease notes", limit=8)
-# session_id correlation (TUI dogfood parity):
+# optional session_id correlation:
 ack = nc.request_memory_recall_full(
     MemoryRecallRequest(
         tenant_id="dept.research",
@@ -266,7 +265,7 @@ print(res.text, res.ok, res.source)
 print(format_context_snippet(res))
 
 # Always include_lineage=true; empty string on fail-open
-snip = nc.context_snippet("sdk dogfood", workspace=".")
+snip = nc.context_snippet("sdk demo", workspace=".")
 ```
 
 ## Format helpers + connection status
@@ -388,7 +387,7 @@ export IOMESH_URL=http://127.0.0.1:8422
 IOMESH_PUBLISH=1 python examples/pull_loop.py
 ```
 
-Needs a local/stage broker. dual_write not claimed.
+Needs a local or stage broker. dual_write is not claimed.
 
 ## Health / wait_ready / connection_status
 
@@ -396,7 +395,7 @@ Needs a local/stage broker. dual_write not claimed.
 nc.health()  # GET /health
 nc.ready()   # GET /ready, then /readyz if 404
 
-# Poll until ready (optional health gate)
+# Poll until ready (optional health check)
 result = nc.wait_ready(timeout_sec=30.0, interval_sec=0.5, require_health=False)
 print(result.elapsed_sec, result.attempts)
 
@@ -409,29 +408,29 @@ print(status.result, status.health_ms, status.ready_ms)
 
 - **MIT edge client only** — not freemium palace access, not control-plane GA.
 - **Beta / pre-1.0** — APIs may change before 1.0.
-- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**. Local memory HTTP runs on the **operator machine** (sidecar). A mesh-broker URL is not Memory GA (may 404 or return a plan-gate stub `status=accepted` + `note`).
+- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**. Local memory HTTP runs on the **operator machine** (sidecar). A mesh-broker URL is not Memory GA (may 404 or return `status=accepted` + `note`).
 - **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
-- **Catalog is data-products** — Knowledge **Beta**. Listing ≠ Connected. Not webhook/OAuth wrap. Mesh `/v1/catalog/*` cascade leftover.
-- **Nack** — client helper only; serving broker registers ack. A 404 is honest. `IOMESH_NACK=1` in examples is not live APPLY.
+- **Catalog is data-products** — Knowledge **Beta**. Listing ≠ Connected. Not webhook/OAuth wrap. Mesh `/v1/catalog/*` may 404; live list is portal `/v17` (and `/v16`).
+- **Nack** — client helper only; serving broker registers ack. A 404 is honest. `IOMESH_NACK=1` in examples is a client helper demo.
 - **Catalog / policy / context fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
 - **Formatters / connection status** — operator diagnostics only, not product GA surfaces.
 - **Liveview / registry** — edge HTTP helpers only; **not** invent liveview product GA or control-plane GA.
 - **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
 - **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
 
-## Residual park (only)
+## Known limitations
 
-Active 0.x feature wave is closed. No further “next feature wave” list — only parked residuals (see [docs/WRAP_UP.md](docs/WRAP_UP.md)):
+See [docs/WRAP_UP.md](docs/WRAP_UP.md):
 
-- **Live PyPI token** — package ready; publish gated on `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)). Do not invent green PyPI.
-- **Kafka consumer residual** — Produce subset ships; full consumer/admin not in scope yet.
+- **PyPI** — package is ready; a live upload needs `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)). Do not invent a published package.
+- **Kafka consumer** — Produce subset ships; full consumer/admin is not in scope yet.
 - **HTTP `/nack`** — helper kept for Go parity; serving broker does not register the route.
-- **True 1.0** — only when gates in [docs/1.0-bar.md](docs/1.0-bar.md) are met; **0.10 ≠ invent 1.0**.
+- **1.0** — only when [docs/1.0-bar.md](docs/1.0-bar.md) is met; **0.10 is not 1.0**.
 
-## API inventory + wrap-up + 1.0 bar
+## API inventory + 0.x status + 1.0 checklist
 
 - Public surface tables: [docs/API.md](docs/API.md)
-- 0.x continuum closeout: [docs/WRAP_UP.md](docs/WRAP_UP.md)
+- 0.x status: [docs/WRAP_UP.md](docs/WRAP_UP.md)
 - Future 1.0 checklist (**not 1.0 yet**): [docs/1.0-bar.md](docs/1.0-bar.md)
 
 ## Related
@@ -449,11 +448,16 @@ pip install -e ".[dev]"
 python -m pytest -q
 # optional
 ruff check src tests examples
-# optional typing (not a required CI gate yet — see docs/1.0-bar.md)
+# optional typing (not required in CI yet — see docs/1.0-bar.md)
 # python -m mypy --follow-imports=skip src/iomeshclient
 ```
 
 Release process: [RELEASING.md](RELEASING.md). See also [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
+## Contact
+
+- Product / questions: [hello@iome.sh](mailto:hello@iome.sh)
+- Security: [security@iome.sh](mailto:security@iome.sh) — see [SECURITY.md](SECURITY.md)
 
 ## License
 

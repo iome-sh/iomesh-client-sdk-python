@@ -6,7 +6,7 @@
 
 This page is an **inventory of public modules and methods**, not a full reference manual.
 Wire details and honesty notes live in module docstrings and [README.md](../README.md).
-For future 1.0 gates (not met yet), see [1.0-bar.md](1.0-bar.md).
+For the future 1.0 checklist (not met yet), see [1.0-bar.md](1.0-bar.md).
 
 **Package marker:** PEP 561 `py.typed` ships in the wheel (typed package; gradual typing).
 
@@ -46,7 +46,7 @@ For future 1.0 gates (not met yet), see [1.0-bar.md](1.0-bar.md).
 |--------|-----------------|---------|
 | `create_stream` / `ensure_stream` | `POST /v1/streams` (409 → GET) | explicit errors except 409 path |
 | `get_stream` / `list_streams` / `delete_stream` | `/v1/streams…` | |
-| `list_stream_messages(stream, opts?)` | `GET …/messages` | discovery; replay gated on tenant header or operator replay flag; non-2xx → `APIError` |
+| `list_stream_messages(stream, opts?)` | `GET …/messages` | discovery; replay requires tenant header or operator replay flag; non-2xx → `APIError` |
 | Types | `StreamConfig`, `StreamInfo`, `StreamMessage`, `ListStreamMessagesOptions` | |
 | Formatters | `format_streams`, `format_stream_detail` | operator diagnostics |
 
@@ -69,7 +69,7 @@ Public lexicon for org-tool events: **heartbeat / pulse** (e.g. on `dept.*`).
 | `create_consumer` / `ensure_consumer` | `POST …/consumers` (409 → name-only) | durable consumer config |
 | `pull_subscribe(PullSubscribeConfig)` | ensure consumer → `Subscription` | |
 | `consumer_fetch` / `Subscription.fetch` | `POST …/fetch` | batch + `max_wait_ms`; base64 decode |
-| `consumer_ack` / `consumer_nack` / `Msg.ack` / `Msg.nack` | `POST …/ack` / `…/nack` | Ack is served. **Nack** is a Go-parity helper; serving broker may 404 (not live APPLY) |
+| `consumer_ack` / `consumer_nack` / `Msg.ack` / `Msg.nack` | `POST …/ack` / `…/nack` | Ack is served. **Nack** is a Go-parity helper; serving broker may 404 |
 | Types | `CreateConsumerConfig`, `ConsumerInfo`, `PullSubscribeConfig`, `Subscription`, `Msg` | |
 | Formatters | `format_msg`, `format_msgs`, `format_consumer_info` | operator diagnostics |
 
@@ -94,7 +94,7 @@ Example: [`examples/pull_loop.py`](../examples/pull_loop.py) (needs broker).
 |--------|----------|---------|
 | `publish_memory_ingest` | publish `MEMORY_INGEST` | edge only |
 | `dual_write_memory_turn(..., sync=False)` | async primary; optional sync | **dual_write OFF by default** |
-| `ingest_memory_turn` | sync ingest path | **sidecar-on-operator**; broker-only URL may stub `status=accepted` + `note` (keep `note`; not a palace write) |
+| `ingest_memory_turn` | sync ingest path | **sidecar-on-operator**; broker-only URL may return `status=accepted` + `note` (keep `note`; not a palace write) |
 | `retrieve_memory` | retrieve HTTP/RPC | sidecar-on-operator · not Memory GA invent |
 | `request_memory_recall` / `request_memory_recall_full` | publish `MEMORY_RPC` subject `{tenant}.memory.retrieve.request` | async fire-and-forget edge publish |
 | `retrieve_memory_related` | multi-hop **lite** | sidecar-on-operator · not full graph RAG |
@@ -185,19 +185,19 @@ Local HMAC + subject/envelope helpers (stdlib). **Not** mesh connector HTTP, OAu
 
 ---
 
-## Residual gaps (honest)
+## Known gaps
 
 | Gap | Status |
 |-----|--------|
-| **PyPI live publish** | Version/package ready; gated on `secrets.PYPI_TOKEN` (see [RELEASING.md](../RELEASING.md)) |
+| **PyPI live publish** | Version/package ready; upload needs `secrets.PYPI_TOKEN` (see [RELEASING.md](../RELEASING.md)) |
 | **Kafka consumer / admin** | Not in scope — Produce subset only |
-| **Full mypy / pyright CI gate** | `py.typed` present; strict type CI optional residual |
+| **Full mypy / pyright CI** | `py.typed` present; strict type CI optional |
 | **1.0 stability bar** | Explicit checklist in [1.0-bar.md](1.0-bar.md) — **not 1.0 yet** |
-| **Go surface parity matrix** | Expanding; document residual deltas before major |
+| **Go surface parity matrix** | Expanding; document remaining deltas before major |
 | **Memory GA / dual_write product** | dual_write OFF by default · helpers are edge/async · sidecar-on-operator |
 | **HTTP `/nack`** | Client helper exists; serving broker registers ack, not nack (404 is honest) |
 | **Integrations / OAuth / portal session** | Not this SDK. Data-products catalog ≠ Connected. Knowledge Beta. |
-| **Broker `/v1/catalog/*`** | Cascade leftover (404 → portal `/v17` / `/v16`) |
+| **Broker `/v1/catalog/*`** | Cascade (404 → portal `/v17` / `/v16`) |
 
 ---
 

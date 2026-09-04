@@ -3,7 +3,7 @@
 
 Requires a reachable local or stage I/O Mesh broker (default http://127.0.0.1:8422).
 This example does not start a broker and does not claim dual_write / Memory GA /
-hosted control-plane access / freemium palace. Surfaces are Beta / pre-1.0.
+hosted control-plane access. Surfaces are Beta / pre-1.0.
 Public lexicon: heartbeat / pulse only. MIT edge client only.
 
 Env:
@@ -21,13 +21,14 @@ Env:
   IOMESH_LOOPS       number of fetch iterations (default 3)
   IOMESH_PUBLISH=1   publish one org_heartbeat before the pull loop
   IOMESH_NACK=1      nack instead of ack (client helper demo only — serving
-                     broker may 404 this path; not live APPLY)
+                     broker may 404 this path)
 
 Usage:
   export IOMESH_URL=http://127.0.0.1:8422
   IOMESH_PUBLISH=1 python examples/pull_loop.py
 
-Offline stage smoke ≠ live APPLY. dual_write is not claimed here.
+Needs a reachable broker. Running this example locally is not a production rollout.
+dual_write is not claimed here.
 """
 
 from __future__ import annotations
@@ -113,9 +114,9 @@ def main() -> int:
     print(f"PASS pull_loop acked_or_nacked={total} mode={'nack' if do_nack else 'ack'}")
     print("RESULT=done")
     print(
-        "note: needs local/stage broker · offline stage smoke ≠ live APPLY · "
+        "note: needs local/stage broker · example is not a production rollout · "
         "dual_write not claimed · Beta pre-1.0 · MIT edge client only · "
-        "public lexicon heartbeat/pulse only · durable pull residual demo only · "
+        "public lexicon heartbeat/pulse only · durable pull demo · "
         "nack helper may 404 on serving broker"
     )
     return 0

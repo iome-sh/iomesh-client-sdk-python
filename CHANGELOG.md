@@ -7,20 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Honesty leftover pass vs the serving HTTP plane. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected / live APPLY.**
+Serving HTTP plane notes. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**
 
 ### Added
 
-- **`MemoryIngestResponse.note`** — keep the serving-broker plan-gate stub `note` (do not drop it so `status=accepted` looks like a palace write)
+- **`MemoryIngestResponse.note`** — keep the serving-broker stub `note` (do not drop it so `status=accepted` looks like a palace write)
 
 ### Changed
 
-- Docs / docstrings: nack is a client helper (broker may 404); catalog is **data-products** (Knowledge Beta; listing ≠ Connected; mesh `/v1/catalog/*` cascade leftover); memory HTTP is sidecar-on-operator; replay gated on tenant header or operator replay flag; connectorsdk is local HMAC only
-- `examples/pull_loop.py` — `IOMESH_NACK=1` is not live APPLY
+- **Docs** — public README, examples, API inventory, 0.x status, and Unreleased changelog copy hygiene: strip internal serials, private repository names, and internal workflow phrasing from user-facing docs (#17)
+- Docs / docstrings: nack is a client helper (broker may 404); catalog is **data-products** (Knowledge Beta; listing ≠ Connected; mesh `/v1/catalog/*` cascade); memory HTTP is sidecar-on-operator; replay requires tenant header or operator replay flag; connectorsdk is local HMAC only
+- `examples/pull_loop.py` — `IOMESH_NACK=1` is a client helper demo (broker may 404)
 
 ### Honesty
 
-- MIT edge client · Beta · dual_write **OFF** · not Memory GA · not Knowledge GA · not Connected · not a Memory Ops Pack · offline example ≠ live APPLY
+- MIT edge client · Beta · dual_write **OFF** · not Memory GA · not Knowledge GA · not Connected · not a Memory Ops Pack
 
 ## [0.10.1] — 2026-08-11
 
