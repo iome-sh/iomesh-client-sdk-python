@@ -17,13 +17,14 @@ For the future 1.0 checklist (not met yet), see [1.0-bar.md](1.0-bar.md).
 | Symbol | Kind | Notes |
 |--------|------|--------|
 | `connect(options: ConnectOptions) -> Client` | factory | No network I/O |
-| `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/token/timeout |
-| `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent` |
+| `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/token/timeout; `IOMESH_REQUIRE_ORG` fail-closes catalog/consume when org is empty |
+| `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent`, `require_org` |
 | `Client` | class | HTTP plane; mixins for KV, memory, metering, catalog, policy, context, liveview, status |
 | `VERSION` / `__version__` | str | e.g. `0.10.1` |
 | `ClientError` / `APIError` | exceptions | Transport / non-2xx |
 
 **Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`; optional `Authorization: Bearer …`  
+`ConnectOptions.org` / `IOMESH_ORG` is sent as `X-IOMesh-Org` on every request when set. Omitting org leaves isolation to the broker: local/dev may mix shared-stream reads; hosted brokers may reject catalog/consume. `require_org` / `IOMESH_REQUIRE_ORG=1` raises `ClientError` before the request. No library default org.  
 **User-Agent:** `iomesh-client-sdk-python/<VERSION>`
 
 ---
@@ -68,7 +69,7 @@ Public lexicon for org-tool events: **heartbeat / pulse** (e.g. on `dept.*`).
 |--------|-----------------|---------|
 | `create_consumer` / `ensure_consumer` | `POST …/consumers` (409 → name-only) | durable consumer config |
 | `pull_subscribe(PullSubscribeConfig)` | ensure consumer → `Subscription` | |
-| `consumer_fetch` / `Subscription.fetch` | `POST …/fetch` | batch + `max_wait_ms`; base64 decode |
+| `consumer_fetch` / `Subscription.fetch` | `POST …/fetch` | batch + `max_wait_ms`; base64 decode; sends `X-IOMesh-Org` when org is set; omit-org can mix shared streams unless `require_org` |
 | `consumer_ack` / `consumer_nack` / `Msg.ack` / `Msg.nack` | `POST …/ack` / `…/nack` | Ack is served. **Nack** is a Go-parity helper; serving broker may 404 |
 | Types | `CreateConsumerConfig`, `ConsumerInfo`, `PullSubscribeConfig`, `Subscription`, `Msg` | |
 | Formatters | `format_msg`, `format_msgs`, `format_consumer_info` | operator diagnostics |

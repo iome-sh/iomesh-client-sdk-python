@@ -86,7 +86,8 @@ nc = connect(
     )
 )
 # …or from env: IOMESH_URL (required), optional IOMESH_TENANT / IOMESH_ORG /
-# IOMESH_WORKSPACE / IOMESH_BEARER_TOKEN|IOMESH_TOKEN / IOMESH_TIMEOUT
+# IOMESH_WORKSPACE / IOMESH_BEARER_TOKEN|IOMESH_TOKEN / IOMESH_TIMEOUT /
+# IOMESH_REQUIRE_ORG=1 (fail-closed catalog/consume when IOMESH_ORG is empty)
 # nc = connect_from_env()
 
 info = nc.create_stream(
@@ -111,9 +112,12 @@ Runnable framing (publish + optional pull): [`examples/org_heartbeat_publish.py`
 
 ```bash
 export IOMESH_URL=http://127.0.0.1:8422
+export IOMESH_ORG=org_example   # X-IOMesh-Org on publish/fetch/ack
 python examples/org_heartbeat_publish.py
 IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 ```
+
+`ConnectOptions.org` / `IOMESH_ORG` maps to `X-IOMesh-Org`. Hosted brokers isolate catalog and durable pull by that header; omitting it can mix shared-stream reads (or the broker may reject the request). Local/dev brokers still fail-open when org is empty. Set `IOMESH_REQUIRE_ORG=1` (or `ConnectOptions.require_org=True`) so the client raises `ClientError` instead of sending an unscoped fetch. The library does **not** invent a default org.
 
 Needs a local or stage broker. Running the example locally is not a production rollout.
 

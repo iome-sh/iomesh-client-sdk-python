@@ -9,7 +9,8 @@ Public lexicon: heartbeat / pulse only. MIT edge client only.
 Env:
   IOMESH_URL         mesh broker base (default http://127.0.0.1:8422)
   IOMESH_TENANT      tenant (default dept.engineering)
-  IOMESH_ORG         optional X-IOMesh-Org
+  IOMESH_ORG         X-IOMesh-Org (set for hosted isolation; omit only on local fail-open brokers)
+  IOMESH_REQUIRE_ORG 1/true/yes/on — client fail-closes catalog/consume when IOMESH_ORG is empty
   IOMESH_WORKSPACE   optional X-IOMesh-Workspace
   IOMESH_API_KEY     optional Bearer
   IOMESH_STREAM      stream name (default EVENTS)
@@ -25,6 +26,7 @@ Env:
 
 Usage:
   export IOMESH_URL=http://127.0.0.1:8422
+  export IOMESH_ORG=org_example
   IOMESH_PUBLISH=1 python examples/pull_loop.py
 
 Needs a reachable broker. Running this example locally is not a production rollout.
@@ -70,6 +72,8 @@ def main() -> int:
             org=os.environ.get("IOMESH_ORG", "").strip(),
             workspace=os.environ.get("IOMESH_WORKSPACE", "").strip(),
             bearer_token=os.environ.get("IOMESH_API_KEY", "").strip(),
+            require_org=os.environ.get("IOMESH_REQUIRE_ORG", "").strip().lower()
+            in ("1", "true", "yes", "on"),
         )
     )
 

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ConnectOptions.require_org` / `IOMESH_REQUIRE_ORG`** — optional fail-closed catalog/consume/publish when org is empty (`ClientError` instead of omitting `X-IOMesh-Org`). Default off for local/dev. Closes [#19](https://github.com/iome-sh/iomesh-client-sdk-python/issues/19).
+
+### Changed
+
+- **Docs** — README, `docs/API.md`, and pull/publish examples document `IOMESH_ORG` → `X-IOMesh-Org` on fetch/ack/create_consumer/publish. Omitting org can mix shared-stream reads (or hosted brokers may reject). No library default org. Closes [#20](https://github.com/iome-sh/iomesh-client-sdk-python/issues/20).
+
 ## [0.10.2] — 2026-09-04
 
 Patch: additive `StreamInfo.org_id`, public copy hygiene, and serving-plane honesty. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**

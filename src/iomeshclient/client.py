@@ -51,6 +51,9 @@ class ConnectOptions:
     workspace: str = ""
     bearer_token: str = ""
     user_agent: str = ""
+    # When True, catalog/consume/publish raise ClientError if org is empty
+    # (no silent mix on shared streams). Default False keeps local/dev DX.
+    require_org: bool = False
 
 
 @dataclass
@@ -200,6 +203,7 @@ class Client(
         workspace: str = "",
         bearer_token: str = "",
         user_agent: str = "",
+        require_org: bool = False,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout if timeout > 0 else DEFAULT_TIMEOUT_SEC
@@ -208,6 +212,7 @@ class Client(
         self.workspace = workspace.strip()
         self.bearer_token = bearer_token.strip()
         self.user_agent = (user_agent or DEFAULT_USER_AGENT).strip() or DEFAULT_USER_AGENT
+        self.require_org = bool(require_org)
 
     # --- health ---
 
@@ -314,6 +319,7 @@ class Client(
     # --- streams ---
 
     def create_stream(self, cfg: StreamConfig) -> Optional[StreamInfo]:
+        self._ensure_org_for_isolation()
         if not cfg.name:
             raise ClientError("iomeshclient: stream name required")
         if not cfg.subjects:
@@ -347,6 +353,7 @@ class Client(
         return self.create_stream(cfg)
 
     def get_stream(self, name: str) -> StreamInfo:
+        self._ensure_org_for_isolation()
         name = name.strip()
         if not name:
             raise ClientError("iomeshclient: stream name required")
@@ -360,6 +367,7 @@ class Client(
         return info
 
     def list_streams(self) -> list[StreamInfo]:
+        self._ensure_org_for_isolation()
         raw = self._do_json("GET", "/v1/streams", None)
         if raw is None:
             return []
@@ -370,6 +378,7 @@ class Client(
         raise ClientError("iomeshclient: unexpected list_streams body")
 
     def delete_stream(self, name: str) -> None:
+        self._ensure_org_for_isolation()
         name = name.strip()
         if not name:
             raise ClientError("iomeshclient: stream name required")
@@ -389,8 +398,9 @@ class Client(
         Serving broker replay is gated: allowed when ``X-IOMesh-Tenant`` is set
         (this client sends it when ``ConnectOptions.tenant`` is set) or when the
         operator enables memory-replay on the broker. Otherwise the server may
-        return 403. This is discovery, not live APPLY.
+        return 403. Discovery only — not a production rollout.
         """
+        self._ensure_org_for_isolation()
         stream = (stream or "").strip()
         if not stream:
             raise ClientError("iomeshclient: stream name required")
@@ -454,6 +464,7 @@ class Client(
         partition: Optional[int] = None,
         headers: Optional[Mapping[str, str]] = None,
     ) -> PubAck:
+        self._ensure_org_for_isolation()
         stream = stream.strip()
         subject = subject.strip()
         if not stream or not subject:
@@ -486,6 +497,7 @@ class Client(
     # --- consumers ---
 
     def create_consumer(self, cfg: CreateConsumerConfig) -> ConsumerInfo:
+        self._ensure_org_for_isolation()
         if not cfg.stream or not cfg.name:
             raise ClientError("iomeshclient: stream and name required")
         req: dict[str, Any] = {"name": cfg.name}
@@ -529,6 +541,7 @@ class Client(
         *,
         max_wait_ms: int = DEFAULT_FETCH_MAX_WAIT_MS,
     ) -> list[Msg]:
+        self._ensure_org_for_isolation()
         if not stream or not consumer:
             raise ClientError("iomeshclient: stream and consumer required")
         if batch <= 0:
@@ -575,6 +588,7 @@ class Client(
         return out
 
     def consumer_ack(self, stream: str, consumer: str, *seqs: int) -> None:
+        self._ensure_org_for_isolation()
         if not stream or not consumer:
             raise ClientError("iomeshclient: stream and consumer required")
         if not seqs:
@@ -590,8 +604,9 @@ class Client(
 
         Go-parity helper. The serving broker registers create/fetch/ack today;
         this path may 404 (``APIError``). Do not treat a local mock or example
-        flag as live APPLY.
+        flag as a production rollout.
         """
+        self._ensure_org_for_isolation()
         if not stream or not consumer:
             raise ClientError("iomeshclient: stream and consumer required")
         if not seqs:
@@ -603,6 +618,23 @@ class Client(
         self._do_json("POST", path, {"seqs": list(seqs)})
 
     # --- HTTP ---
+
+    def _ensure_org_for_isolation(self) -> None:
+        """Fail closed when require_org is set and org is empty.
+
+        Default (require_org False) still omits X-IOMesh-Org so local/dev
+        brokers work. Hosted brokers isolate catalog/consume by that header;
+        omitting it can mix shared-stream reads. Set ConnectOptions.org /
+        IOMESH_ORG, or ConnectOptions.require_org / IOMESH_REQUIRE_ORG=1.
+        """
+        if not self.require_org:
+            return
+        if self.org:
+            return
+        raise ClientError(
+            "iomeshclient: X-IOMesh-Org required for org-scoped catalog/consume "
+            "(set ConnectOptions.org or IOMESH_ORG)"
+        )
 
     def _auth_headers(self) -> dict[str, str]:
         h = {"User-Agent": self.user_agent}
@@ -689,6 +721,7 @@ def connect(options: ConnectOptions) -> Client:
         workspace=options.workspace,
         bearer_token=options.bearer_token,
         user_agent=options.user_agent,
+        require_org=options.require_org,
     )
 
 
@@ -702,6 +735,8 @@ def connect_from_env(environ: Optional[Mapping[str, str]] = None) -> Client:
       ``IOMESH_TENANT``, ``IOMESH_ORG``, ``IOMESH_WORKSPACE``
       ``IOMESH_BEARER_TOKEN`` or ``IOMESH_TOKEN`` (bearer; BEARER_TOKEN wins if both set)
       ``IOMESH_TIMEOUT`` — request timeout seconds (float; default 30)
+      ``IOMESH_REQUIRE_ORG`` — ``1``/``true``/``yes``/``on`` fail-closes catalog/consume
+      when ``IOMESH_ORG`` is empty (default off; local/dev DX)
 
     Raises :class:`ClientError` when ``IOMESH_URL`` is missing/empty or timeout is invalid.
     """
@@ -727,8 +762,13 @@ def connect_from_env(environ: Optional[Mapping[str, str]] = None) -> Client:
             org=(env.get("IOMESH_ORG") or "").strip(),
             workspace=(env.get("IOMESH_WORKSPACE") or "").strip(),
             bearer_token=token,
+            require_org=_env_flag(env.get("IOMESH_REQUIRE_ORG") or ""),
         )
     )
+
+
+def _env_flag(raw: str) -> bool:
+    return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
 def _validate_broker_url(raw: str) -> None:

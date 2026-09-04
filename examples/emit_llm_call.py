@@ -9,7 +9,7 @@ Public lexicon: heartbeat / pulse only. MIT edge client only.
 Env:
   IOMESH_URL        mesh broker base (default http://127.0.0.1:8422)
   IOMESH_TENANT     tenant (default dept.engineering)
-  IOMESH_ORG        optional X-IOMesh-Org (also enriched into payload when unset)
+  IOMESH_ORG        X-IOMesh-Org (also enriched into payload when unset; set for hosted isolation)
   IOMESH_WORKSPACE  optional X-IOMesh-Workspace
   IOMESH_API_KEY    optional Bearer
   IOMESH_SESSION    optional session_id on the event (default sess-demo)
@@ -49,6 +49,8 @@ def main() -> int:
             org=os.environ.get("IOMESH_ORG", "").strip(),
             workspace=os.environ.get("IOMESH_WORKSPACE", "").strip(),
             bearer_token=os.environ.get("IOMESH_API_KEY", "").strip(),
+            require_org=os.environ.get("IOMESH_REQUIRE_ORG", "").strip().lower()
+            in ("1", "true", "yes", "on"),
         )
     )
 
