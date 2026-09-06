@@ -277,7 +277,7 @@ def test_list_live_views_unexpected_body(broker) -> None:
 
 
 def test_version_and_constants() -> None:
-    assert VERSION == "0.10.3"
+    assert VERSION == "0.11.0"
     assert PROCESSOR_TYPE_FILTER == "filter"
     assert PROCESSOR_TYPE_MAP == "map"
     assert PROCESSOR_TYPE_ENRICH == "enrich"

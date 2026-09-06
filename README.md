@@ -34,15 +34,15 @@ Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh
 
 > **Package:** `iomeshclient`  
 > **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`, `X-IOMesh-Department`  
-> **User-Agent:** `iomesh-client-sdk-python/0.10.3`  
-> **Status:** public OSS **v0.10.3** (pre-1.0, **Beta** — not 1.0)  
+> **User-Agent:** `iomesh-client-sdk-python/0.11.0`  
+> **Status:** public OSS **v0.11.0** (pre-1.0, **Beta** — not 1.0)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
 
 ## Status
 
 See **[docs/WRAP_UP.md](docs/WRAP_UP.md)** for the 0.1–0.10 summary, install paths (git / Release assets / local wheel — **not** live PyPI), and known limitations.
 
-- Current public surface: **v0.10.3** (patch: optional `require_org` / `IOMESH_REQUIRE_ORG` on catalog/consume; `StreamInfo.org_id` was **v0.10.2**)  
+- Current public surface: **v0.11.0** (minor: opt-in `X-IOMesh-Department` / `IOMESH_DEPARTMENT`; `require_org` was **v0.10.3**)  
 - **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) is met** — **v0.10 does not invent or declare 1.0**
 
 ## Requirements

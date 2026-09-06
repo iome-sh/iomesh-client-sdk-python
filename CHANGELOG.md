@@ -7,10 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-09-06
+
+Minor: opt-in `X-IOMesh-Department` on client auth and connector headers. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**
+
 ### Added
 
 - **`ConnectOptions.department` / `IOMESH_DEPARTMENT`** — emit `X-IOMesh-Department` when set; omit when empty. Closes [#25](https://github.com/iome-sh/iomesh-client-sdk-python/issues/25).
 - **connectorsdk `publish_headers`** — maps department to `X-IOMesh-Department` (was bare `department`)
+
+### Changed
+
+- Version bump **0.10.3 → 0.11.0**
+- **User-Agent** — `iomesh-client-sdk-python/0.11.0`
 
 ### Honesty
 
