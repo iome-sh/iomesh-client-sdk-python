@@ -174,6 +174,7 @@ def test_connect_from_env_reads_optional_fields(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("IOMESH_TENANT", "dept.engineering")
     monkeypatch.setenv("IOMESH_ORG", "acme-org")
     monkeypatch.setenv("IOMESH_WORKSPACE", "ws_default")
+    monkeypatch.setenv("IOMESH_DEPARTMENT", "engineering")
     monkeypatch.setenv("IOMESH_BEARER_TOKEN", "secret-token")
     monkeypatch.setenv("IOMESH_TIMEOUT", "12.5")
     nc = connect_from_env()
@@ -181,6 +182,7 @@ def test_connect_from_env_reads_optional_fields(monkeypatch: pytest.MonkeyPatch)
     assert nc.tenant == "dept.engineering"
     assert nc.org == "acme-org"
     assert nc.workspace == "ws_default"
+    assert nc.department == "engineering"
     assert nc.bearer_token == "secret-token"
     assert nc.timeout == 12.5
 
@@ -210,6 +212,7 @@ def test_connect_from_env_explicit_mapping() -> None:
     assert nc.base_url == "http://127.0.0.1:9"
     assert nc.tenant == "t1"
     assert nc.org == ""
+    assert nc.department == ""
     assert nc.timeout == 30.0
 
 
@@ -223,7 +226,7 @@ def test_connect_from_env_invalid_timeout(monkeypatch: pytest.MonkeyPatch) -> No
 # --- auth headers ---
 
 
-def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
+def test_headers_tenant_org_workspace_department_bearer_user_agent(broker) -> None:
     captured: dict[str, str] = {}
 
     def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
@@ -231,6 +234,7 @@ def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
         captured["tenant"] = h.get("x-iomesh-tenant", "")
         captured["org"] = h.get("x-iomesh-org", "")
         captured["workspace"] = h.get("x-iomesh-workspace", "")
+        captured["department"] = h.get("x-iomesh-department", "")
         captured["auth"] = h.get("authorization", "")
         captured["ua"] = h.get("user-agent", "")
         return 200, b"", {}
@@ -242,6 +246,7 @@ def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
             tenant="dept.research",
             org="org_a",
             workspace="ws_1",
+            department="engineering",
             bearer_token="test-token",
         )
     )
@@ -249,10 +254,27 @@ def test_headers_tenant_org_workspace_bearer_user_agent(broker) -> None:
     assert captured["tenant"] == "dept.research"
     assert captured["org"] == "org_a"
     assert captured["workspace"] == "ws_1"
+    assert captured["department"] == "engineering"
     assert captured["auth"] == "Bearer test-token"
     assert captured["ua"] == f"iomesh-client-sdk-python/{VERSION}"
     assert captured["ua"] == DEFAULT_USER_AGENT
     assert captured["ua"] == "iomesh-client-sdk-python/0.10.3"
+
+
+def test_headers_department_set_and_omit(broker) -> None:
+    captured: list[dict[str, str]] = []
+
+    def handler(rec: dict[str, Any]) -> tuple[int, bytes, dict[str, str]]:
+        captured.append(rec["headers"])
+        return 200, b"", {}
+
+    broker.set_handler(handler)
+    connect(ConnectOptions(url=broker.url, department="  finance  ")).health()
+    connect(ConnectOptions(url=broker.url, department="")).health()
+    connect(ConnectOptions(url=broker.url, department="   ")).health()
+    assert captured[0].get("x-iomesh-department") == "finance"
+    assert "x-iomesh-department" not in captured[1]
+    assert "x-iomesh-department" not in captured[2]
 
 
 def test_headers_omitted_when_unset(broker) -> None:
@@ -261,6 +283,7 @@ def test_headers_omitted_when_unset(broker) -> None:
         assert "x-iomesh-tenant" not in h
         assert "x-iomesh-org" not in h
         assert "x-iomesh-workspace" not in h
+        assert "x-iomesh-department" not in h
         assert "authorization" not in h
         assert h.get("user-agent") == "iomesh-client-sdk-python/0.10.3"
         return 200, b"", {}

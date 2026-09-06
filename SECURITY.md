@@ -29,7 +29,7 @@ We aim to acknowledge within **2 business days** and provide a status update wit
 
 In scope for this repository:
 
-- Client credential handling and HTTP auth headers (`Bearer`, tenant/org/workspace headers)
+- Client credential handling and HTTP auth headers (`Bearer`, tenant/org/workspace/department headers)
 - URL validation (reject `file://`, userinfo in broker URL)
 - Dependency and packaging supply-chain issues for this package
 

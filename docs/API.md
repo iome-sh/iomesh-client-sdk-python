@@ -17,14 +17,15 @@ For the future 1.0 checklist (not met yet), see [1.0-bar.md](1.0-bar.md).
 | Symbol | Kind | Notes |
 |--------|------|--------|
 | `connect(options: ConnectOptions) -> Client` | factory | No network I/O |
-| `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/token/timeout; `IOMESH_REQUIRE_ORG` fail-closes catalog/consume when org is empty |
-| `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent`, `require_org` |
+| `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/department/token/timeout; `IOMESH_REQUIRE_ORG` fail-closes catalog/consume when org is empty |
+| `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent`, `require_org`, `department` |
 | `Client` | class | HTTP plane; mixins for KV, memory, metering, catalog, policy, context, liveview, status |
 | `VERSION` / `__version__` | str | e.g. `0.10.3` |
 | `ClientError` / `APIError` | exceptions | Transport / non-2xx |
 
-**Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`; optional `Authorization: Bearer …`  
+**Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`, `X-IOMesh-Department`; optional `Authorization: Bearer …`  
 `ConnectOptions.org` / `IOMESH_ORG` is sent as `X-IOMesh-Org` on every request when set. Omitting org leaves isolation to the broker: local/dev may mix shared-stream reads; hosted brokers may reject catalog/consume. `require_org` / `IOMESH_REQUIRE_ORG=1` raises `ClientError` before the request. No library default org.  
+`ConnectOptions.department` / `IOMESH_DEPARTMENT` is sent as `X-IOMesh-Department` when set and omitted when empty.  
 **User-Agent:** `iomesh-client-sdk-python/<VERSION>`
 
 ---
@@ -182,7 +183,7 @@ Local HMAC + subject/envelope helpers (stdlib). **Not** mesh connector HTTP, OAu
 |------|---------|
 | HMAC | `compute_hmac_sha256`, `verify_hmac`, `ErrMissingSecret`, `ErrMissingSignature`, `ErrInvalidSignature`, header constants |
 | Subjects | `subject_for_department`, `subject_for_document`, `subject_for_embedding`, `subject_for_warehouse`, `subject_for_metric` |
-| Envelope | `normalize_envelope`, `publish_headers` |
+| Envelope | `normalize_envelope`, `publish_headers` (`X-IOMesh-Department` wire name) |
 
 ---
 

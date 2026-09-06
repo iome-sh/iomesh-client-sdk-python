@@ -8,7 +8,7 @@ HTTP, OAuth install, or portal session routes. Verify ≠ Connected. Knowledge
 connectors stay Beta. Not OAuth-as-webhook.
 """
 
-from .envelope import normalize_envelope, publish_headers
+from .envelope import DEPARTMENT_HEADER, normalize_envelope, publish_headers
 from .hmac import (
     DEFAULT_HMAC_PREFIX,
     HEADER_DELIVERY,
@@ -30,6 +30,7 @@ from .subject import (
 
 __all__ = [
     "DEFAULT_HMAC_PREFIX",
+    "DEPARTMENT_HEADER",
     "HEADER_DELIVERY",
     "HEADER_EVENT",
     "HEADER_SIGNATURE_256",

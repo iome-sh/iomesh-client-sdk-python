@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ConnectOptions.department` / `IOMESH_DEPARTMENT`** — emit `X-IOMesh-Department` when set; omit when empty. Closes [#25](https://github.com/iome-sh/iomesh-client-sdk-python/issues/25).
+- **connectorsdk `publish_headers`** — maps department to `X-IOMesh-Department` (was bare `department`)
+
+### Honesty
+
+- MIT edge client · Beta · dual_write **OFF** · not Memory GA · catalog ≠ Connected
+
 ## [0.10.3] — 2026-09-04
 
 Patch: optional fail-closed `X-IOMesh-Org` on catalog/consume, plus pull-example isolation docs. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**
