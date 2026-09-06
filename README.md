@@ -12,7 +12,7 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 
 | Capability (v0.10) | Notes |
 |--------------------|--------|
-| `connect` / **`connect_from_env`** + tenant / org / workspace / bearer headers | No network I/O on connect; env reads `IOMESH_*` |
+| `connect` / **`connect_from_env`** + tenant / org / workspace / department / bearer headers | No network I/O on connect; env reads `IOMESH_*` |
 | `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
 | Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64; **ack is served**; nack is a client helper (serving broker may 404). See `examples/pull_loop.py` |
@@ -33,7 +33,7 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
 > **Package:** `iomeshclient`  
-> **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`  
+> **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`, `X-IOMesh-Department`  
 > **User-Agent:** `iomesh-client-sdk-python/0.10.3`  
 > **Status:** public OSS **v0.10.3** (pre-1.0, **Beta** — not 1.0)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
@@ -83,11 +83,13 @@ nc = connect(
         tenant="dept.engineering",
         org="acme-org",
         workspace="ws_default",
+        department="engineering",
     )
 )
 # …or from env: IOMESH_URL (required), optional IOMESH_TENANT / IOMESH_ORG /
-# IOMESH_WORKSPACE / IOMESH_BEARER_TOKEN|IOMESH_TOKEN / IOMESH_TIMEOUT /
-# IOMESH_REQUIRE_ORG=1 (fail-closed catalog/consume when IOMESH_ORG is empty)
+# IOMESH_WORKSPACE / IOMESH_DEPARTMENT / IOMESH_BEARER_TOKEN|IOMESH_TOKEN /
+# IOMESH_TIMEOUT / IOMESH_REQUIRE_ORG=1 (fail-closed catalog/consume when
+# IOMESH_ORG is empty)
 # nc = connect_from_env()
 
 info = nc.create_stream(
@@ -119,6 +121,8 @@ IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 
 `ConnectOptions.org` / `IOMESH_ORG` maps to `X-IOMesh-Org`. Hosted brokers isolate catalog and durable pull by that header; omitting it can mix shared-stream reads (or the broker may reject the request). Local/dev brokers still fail-open when org is empty. Set `IOMESH_REQUIRE_ORG=1` (or `ConnectOptions.require_org=True`) so the client raises `ClientError` instead of sending an unscoped fetch. The library does **not** invent a default org.
 
+`ConnectOptions.department` / `IOMESH_DEPARTMENT` maps to `X-IOMesh-Department` when set and is omitted when empty. Connector `publish_headers` uses the same wire name.
+
 Needs a local or stage broker. Running the example locally is not a production rollout.
 
 ## Metering — dept.* heartbeat / pulse
@@ -134,6 +138,7 @@ nc = connect(
         tenant="dept.engineering",
         org="acme-org",
         workspace="ws_default",
+        department="engineering",
     )
 )
 

@@ -11,6 +11,7 @@ Env:
   IOMESH_TENANT     tenant (default dept.engineering)
   IOMESH_ORG        X-IOMesh-Org (also enriched into payload when unset; set for hosted isolation)
   IOMESH_WORKSPACE  optional X-IOMesh-Workspace
+  IOMESH_DEPARTMENT optional X-IOMesh-Department
   IOMESH_API_KEY    optional Bearer
   IOMESH_SESSION    optional session_id on the event (default sess-demo)
   IOMESH_MODEL      model name (default demo-model)
@@ -48,6 +49,7 @@ def main() -> int:
             tenant=tenant,
             org=os.environ.get("IOMESH_ORG", "").strip(),
             workspace=os.environ.get("IOMESH_WORKSPACE", "").strip(),
+            department=os.environ.get("IOMESH_DEPARTMENT", "").strip(),
             bearer_token=os.environ.get("IOMESH_API_KEY", "").strip(),
             require_org=os.environ.get("IOMESH_REQUIRE_ORG", "").strip().lower()
             in ("1", "true", "yes", "on"),

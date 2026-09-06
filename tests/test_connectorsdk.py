@@ -8,6 +8,7 @@ import pytest
 
 from iomeshclient.connectorsdk import (
     DEFAULT_HMAC_PREFIX,
+    DEPARTMENT_HEADER,
     ErrInvalidSignature,
     ErrMissingSecret,
     ErrMissingSignature,
@@ -154,14 +155,20 @@ def test_normalize_envelope_validation() -> None:
 
 def test_publish_headers() -> None:
     h = publish_headers("github", "ops", "delivery-002", "github")
+    assert DEPARTMENT_HEADER == "X-IOMesh-Department"
     assert h == {
         "connector_id": "github",
-        "department": "ops",
+        "X-IOMesh-Department": "ops",
         "external_id": "delivery-002",
         "source": "github",
     }
+    assert "department" not in h
     h2 = publish_headers(" slack ", " engineering ", " Ev003 ", " slack ")
     assert h2["connector_id"] == "slack"
-    assert h2["department"] == "engineering"
+    assert h2["X-IOMesh-Department"] == "engineering"
     assert h2["external_id"] == "Ev003"
     assert h2["source"] == "slack"
+    assert "department" not in h2
+    omitted = publish_headers("github", "", "delivery-003", "github")
+    assert "X-IOMesh-Department" not in omitted
+    assert "department" not in omitted

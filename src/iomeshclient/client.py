@@ -1,6 +1,7 @@
 """HTTP client for the I/O Mesh broker (/v1 API).
 
-Wire headers: X-IOMesh-Tenant, X-IOMesh-Org, X-IOMesh-Workspace.
+Wire headers: X-IOMesh-Tenant, X-IOMesh-Org, X-IOMesh-Workspace,
+X-IOMesh-Department (omit when empty).
 Default User-Agent: iomesh-client-sdk-python/<VERSION>.
 Connect performs no network I/O.
 """
@@ -38,6 +39,7 @@ DEFAULT_WAIT_READY_INTERVAL_SEC = 0.5
 TENANT_HEADER = "X-IOMesh-Tenant"
 ORG_HEADER = "X-IOMesh-Org"
 WORKSPACE_HEADER = "X-IOMesh-Workspace"
+DEPARTMENT_HEADER = "X-IOMesh-Department"
 
 
 @dataclass
@@ -54,6 +56,7 @@ class ConnectOptions:
     # When True, catalog/consume/publish raise ClientError if org is empty
     # (no silent mix on shared streams). Default False keeps local/dev DX.
     require_org: bool = False
+    department: str = ""
 
 
 @dataclass
@@ -201,6 +204,7 @@ class Client(
         tenant: str = "",
         org: str = "",
         workspace: str = "",
+        department: str = "",
         bearer_token: str = "",
         user_agent: str = "",
         require_org: bool = False,
@@ -210,6 +214,7 @@ class Client(
         self.tenant = tenant.strip()
         self.org = org.strip()
         self.workspace = workspace.strip()
+        self.department = department.strip()
         self.bearer_token = bearer_token.strip()
         self.user_agent = (user_agent or DEFAULT_USER_AGENT).strip() or DEFAULT_USER_AGENT
         self.require_org = bool(require_org)
@@ -644,6 +649,8 @@ class Client(
             h[ORG_HEADER] = self.org
         if self.workspace:
             h[WORKSPACE_HEADER] = self.workspace
+        if self.department:
+            h[DEPARTMENT_HEADER] = self.department
         if self.bearer_token:
             h["Authorization"] = f"Bearer {self.bearer_token}"
         return h
@@ -719,6 +726,7 @@ def connect(options: ConnectOptions) -> Client:
         tenant=options.tenant,
         org=options.org,
         workspace=options.workspace,
+        department=options.department,
         bearer_token=options.bearer_token,
         user_agent=options.user_agent,
         require_org=options.require_org,
@@ -732,7 +740,7 @@ def connect_from_env(environ: Optional[Mapping[str, str]] = None) -> Client:
       ``IOMESH_URL`` — broker base URL (http/https)
 
     Optional:
-      ``IOMESH_TENANT``, ``IOMESH_ORG``, ``IOMESH_WORKSPACE``
+      ``IOMESH_TENANT``, ``IOMESH_ORG``, ``IOMESH_WORKSPACE``, ``IOMESH_DEPARTMENT``
       ``IOMESH_BEARER_TOKEN`` or ``IOMESH_TOKEN`` (bearer; BEARER_TOKEN wins if both set)
       ``IOMESH_TIMEOUT`` — request timeout seconds (float; default 30)
       ``IOMESH_REQUIRE_ORG`` — ``1``/``true``/``yes``/``on`` fail-closes catalog/consume
@@ -761,6 +769,7 @@ def connect_from_env(environ: Optional[Mapping[str, str]] = None) -> Client:
             tenant=(env.get("IOMESH_TENANT") or "").strip(),
             org=(env.get("IOMESH_ORG") or "").strip(),
             workspace=(env.get("IOMESH_WORKSPACE") or "").strip(),
+            department=(env.get("IOMESH_DEPARTMENT") or "").strip(),
             bearer_token=token,
             require_org=_env_flag(env.get("IOMESH_REQUIRE_ORG") or ""),
         )

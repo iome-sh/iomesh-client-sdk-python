@@ -11,6 +11,7 @@ Env:
   IOMESH_ORG        X-IOMesh-Org (set for hosted isolation; omit only on local fail-open brokers)
   IOMESH_REQUIRE_ORG 1/true/yes/on — client fail-closes catalog/consume when IOMESH_ORG is empty
   IOMESH_WORKSPACE  optional X-IOMesh-Workspace
+  IOMESH_DEPARTMENT optional X-IOMesh-Department
   IOMESH_API_KEY    optional Bearer
   IOMESH_STREAM     stream name (default EVENTS)
   IOMESH_SUBJECT    publish subject (default <tenant>.events.org-heartbeat)
@@ -59,6 +60,7 @@ def main() -> int:
             tenant=tenant,
             org=os.environ.get("IOMESH_ORG", "").strip(),
             workspace=os.environ.get("IOMESH_WORKSPACE", "").strip(),
+            department=os.environ.get("IOMESH_DEPARTMENT", "").strip(),
             bearer_token=os.environ.get("IOMESH_API_KEY", "").strip(),
             require_org=os.environ.get("IOMESH_REQUIRE_ORG", "").strip().lower()
             in ("1", "true", "yes", "on"),

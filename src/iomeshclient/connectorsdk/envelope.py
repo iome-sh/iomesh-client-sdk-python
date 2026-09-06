@@ -72,19 +72,30 @@ def normalize_envelope(
     return json.dumps(envelope, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 
 
+# Identity wire name for connector ingress (not the bare "department" key).
+DEPARTMENT_HEADER = "X-IOMesh-Department"
+
+
 def publish_headers(
     connector_id: str,
     department: str,
     external_id: str,
     source: str,
 ) -> dict[str, str]:
-    """Broker metadata headers for connector ingress."""
-    return {
+    """Broker metadata headers for connector ingress.
+
+    Department maps to ``X-IOMesh-Department``. Other keys stay envelope
+    metadata names (connector_id / external_id / source).
+    """
+    headers = {
         "connector_id": (connector_id or "").strip(),
-        "department": (department or "").strip(),
         "external_id": (external_id or "").strip(),
         "source": (source or "").strip(),
     }
+    dept = (department or "").strip()
+    if dept:
+        headers[DEPARTMENT_HEADER] = dept
+    return headers
 
 
 def _coerce_raw(event: RawEvent) -> Optional[Any]:
