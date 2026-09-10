@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-09-10
+
+Patch: org_/ws_+cuid2 shapes + omit-blank workspace = root-default. Never invent workspaces[0]. Catalog ≠ Connected · dual_write OFF · Beta / pre-1.0.
+
 ### Changed
 
 - **Docs** — README, `docs/API.md`, and examples document `X-IOMesh-Org` = `org_`+cuid2 and `X-IOMesh-Workspace` = `ws_`+cuid2. Omit blank workspace = broker root-default; the client never invents `workspaces[0]`. Example placeholders no longer look like CP-minted ids. Closes [#28](https://github.com/iome-sh/iomesh-client-sdk-python/issues/28).
