@@ -9,8 +9,11 @@ Public lexicon: heartbeat / pulse only. MIT edge client only.
 Env:
   IOMESH_URL        mesh broker base (default http://127.0.0.1:8422)
   IOMESH_TENANT     tenant (default dept.engineering)
-  IOMESH_ORG        X-IOMesh-Org (also enriched into payload when unset; set for hosted isolation)
-  IOMESH_WORKSPACE  optional X-IOMesh-Workspace
+  IOMESH_ORG        X-IOMesh-Org — hosted public id is org_+cuid2 (CP-minted, not a
+                    display-name slug). Also enriched into payload when unset; set
+                    for hosted isolation. This example does not mint ids.
+  IOMESH_WORKSPACE  optional X-IOMesh-Workspace — hosted public id is ws_+cuid2.
+                    Omit blank = broker root-default; never invent workspaces[0].
   IOMESH_DEPARTMENT optional X-IOMesh-Department
   IOMESH_API_KEY    optional Bearer
   IOMESH_SESSION    optional session_id on the event (default sess-demo)
@@ -18,6 +21,8 @@ Env:
 
 Usage:
   export IOMESH_URL=http://127.0.0.1:8422
+  export IOMESH_ORG=org_<cuid2>   # CP-minted; not a slug / not org_example
+  # omit IOMESH_WORKSPACE → broker binds org root-default (never workspaces[0])
   python examples/emit_llm_call.py
 
 Needs a reachable broker. Running this example locally is not a production rollout.

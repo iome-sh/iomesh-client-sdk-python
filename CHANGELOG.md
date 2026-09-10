@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs** — README, `docs/API.md`, and examples document `X-IOMesh-Org` = `org_`+cuid2 and `X-IOMesh-Workspace` = `ws_`+cuid2. Omit blank workspace = broker root-default; the client never invents `workspaces[0]`. Example placeholders no longer look like CP-minted ids. Closes [#28](https://github.com/iome-sh/iomesh-client-sdk-python/issues/28).
+
+### Honesty
+
+- MIT edge client · Beta · dual_write **OFF** · not Memory GA · catalog ≠ Connected
+
 ## [0.11.0] — 2026-09-06
 
 Minor: opt-in `X-IOMesh-Department` on client auth and connector headers. **Does not declare 1.0 / GA / live PyPI / Memory GA / Connected.**
