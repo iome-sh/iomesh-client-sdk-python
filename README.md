@@ -33,7 +33,7 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
 
 > **Package:** `iomeshclient`  
-> **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`, `X-IOMesh-Department`  
+> **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org` (`org_`+cuid2), `X-IOMesh-Workspace` (`ws_`+cuid2; omit blank = broker root-default), `X-IOMesh-Department`  
 > **User-Agent:** `iomesh-client-sdk-python/0.11.0`  
 > **Status:** public OSS **v0.11.0** (pre-1.0, **Beta** — not 1.0)  
 > **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
@@ -77,12 +77,15 @@ Connect, ensure a stream under `dept.*`, and publish a single organizational hea
 from iomeshclient import ConnectOptions, StreamConfig, connect, connect_from_env
 
 # Explicit options…
+# Hosted public ids are CP-minted: X-IOMesh-Org = org_+cuid2, X-IOMesh-Workspace = ws_+cuid2.
+# They are not display-name slugs (do not invent acme-org / ws_default as if minted).
+# Omit workspace (empty) so the broker binds the org root-default — never invent workspaces[0].
 nc = connect(
     ConnectOptions(
         url="http://127.0.0.1:8422",
         tenant="dept.engineering",
-        org="acme-org",
-        workspace="ws_default",
+        org="org_<cuid2>",
+        workspace="",
         department="engineering",
     )
 )
@@ -114,12 +117,15 @@ Runnable framing (publish + optional pull): [`examples/org_heartbeat_publish.py`
 
 ```bash
 export IOMESH_URL=http://127.0.0.1:8422
-export IOMESH_ORG=org_example   # X-IOMesh-Org on publish/fetch/ack
+export IOMESH_ORG=org_<cuid2>   # CP-minted X-IOMesh-Org (not a display-name slug)
+# omit IOMESH_WORKSPACE → broker binds org root-default (never invent workspaces[0])
 python examples/org_heartbeat_publish.py
 IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 ```
 
-`ConnectOptions.org` / `IOMESH_ORG` maps to `X-IOMesh-Org`. Hosted brokers isolate catalog and durable pull by that header; omitting it can mix shared-stream reads (or the broker may reject the request). Local/dev brokers still fail-open when org is empty. Set `IOMESH_REQUIRE_ORG=1` (or `ConnectOptions.require_org=True`) so the client raises `ClientError` instead of sending an unscoped fetch. The library does **not** invent a default org.
+`ConnectOptions.org` / `IOMESH_ORG` maps to `X-IOMesh-Org`. Hosted public ids are **`org_`+cuid2** (control-plane minted, opaque — not a display-name slug). Hosted brokers isolate catalog and durable pull by that header; omitting it can mix shared-stream reads (or the broker may reject the request). Local/dev brokers still fail-open when org is empty. Set `IOMESH_REQUIRE_ORG=1` (or `ConnectOptions.require_org=True`) so the client raises `ClientError` instead of sending an unscoped fetch. The library does **not** invent a default org and does **not** mint or validate the cuid2 shape.
+
+`ConnectOptions.workspace` / `IOMESH_WORKSPACE` maps to `X-IOMesh-Workspace` when set. Hosted public ids are **`ws_`+cuid2**. **Omit a blank workspace** so the broker binds the org **root-default**. This client never invents `workspaces[0]` (creation-order first row is not the root bind). A child workspace is an explicit `ws_`+cuid2 you already have — not a slug like `ws_default`.
 
 `ConnectOptions.department` / `IOMESH_DEPARTMENT` maps to `X-IOMesh-Department` when set and is omitted when empty. Connector `publish_headers` uses the same wire name.
 
@@ -136,8 +142,8 @@ nc = connect(
     ConnectOptions(
         url="http://127.0.0.1:8422",
         tenant="dept.engineering",
-        org="acme-org",
-        workspace="ws_default",
+        org="org_<cuid2>",  # CP-minted; not a display-name slug
+        workspace="",       # omit = broker root-default; never invent workspaces[0]
         department="engineering",
     )
 )
@@ -393,6 +399,8 @@ Runnable durable pull loop (fetch + ack, optional publish seed):
 
 ```bash
 export IOMESH_URL=http://127.0.0.1:8422
+export IOMESH_ORG=org_<cuid2>   # CP-minted X-IOMesh-Org (not a display-name slug)
+# omit IOMESH_WORKSPACE → broker binds org root-default (never invent workspaces[0])
 IOMESH_PUBLISH=1 python examples/pull_loop.py
 ```
 

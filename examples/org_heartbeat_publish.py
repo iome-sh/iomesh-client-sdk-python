@@ -8,9 +8,12 @@ hosted control-plane access. Surfaces are Beta / pre-1.0. MIT edge client only.
 Env:
   IOMESH_URL        mesh broker base (default http://127.0.0.1:8422)
   IOMESH_TENANT     tenant (default dept.engineering)
-  IOMESH_ORG        X-IOMesh-Org (set for hosted isolation; omit only on local fail-open brokers)
+  IOMESH_ORG        X-IOMesh-Org — hosted public id is org_+cuid2 (CP-minted, not a
+                    display-name slug). Set for hosted isolation; omit only on local
+                    fail-open brokers. This example does not mint ids.
   IOMESH_REQUIRE_ORG 1/true/yes/on — client fail-closes catalog/consume when IOMESH_ORG is empty
-  IOMESH_WORKSPACE  optional X-IOMesh-Workspace
+  IOMESH_WORKSPACE  optional X-IOMesh-Workspace — hosted public id is ws_+cuid2.
+                    Omit blank = broker root-default; never invent workspaces[0].
   IOMESH_DEPARTMENT optional X-IOMesh-Department
   IOMESH_API_KEY    optional Bearer
   IOMESH_STREAM     stream name (default EVENTS)
@@ -20,7 +23,8 @@ Env:
 
 Usage:
   export IOMESH_URL=http://127.0.0.1:8422
-  export IOMESH_ORG=org_example
+  export IOMESH_ORG=org_<cuid2>   # CP-minted; not a slug / not org_example
+  # omit IOMESH_WORKSPACE → broker binds org root-default (never workspaces[0])
   python examples/org_heartbeat_publish.py
   IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 

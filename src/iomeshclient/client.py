@@ -1,7 +1,8 @@
 """HTTP client for the I/O Mesh broker (/v1 API).
 
-Wire headers: X-IOMesh-Tenant, X-IOMesh-Org, X-IOMesh-Workspace,
-X-IOMesh-Department (omit when empty).
+Wire headers: X-IOMesh-Tenant, X-IOMesh-Org (org_+cuid2),
+X-IOMesh-Workspace (ws_+cuid2; omit blank = broker root-default,
+never invent workspaces[0]), X-IOMesh-Department (omit when empty).
 Default User-Agent: iomesh-client-sdk-python/<VERSION>.
 Connect performs no network I/O.
 """
@@ -44,7 +45,15 @@ DEPARTMENT_HEADER = "X-IOMesh-Department"
 
 @dataclass
 class ConnectOptions:
-    """Broker connection options. URL required (absolute http/https)."""
+    """Broker connection options. URL required (absolute http/https).
+
+    ``org`` maps to ``X-IOMesh-Org``. Hosted public ids are ``org_`` + cuid2
+    (control-plane minted, opaque). This client does not mint or validate.
+
+    ``workspace`` maps to ``X-IOMesh-Workspace`` when set. Hosted public ids
+    are ``ws_`` + cuid2. Blank/omit lets the broker bind the org root-default;
+    the client never invents ``workspaces[0]``.
+    """
 
     url: str
     timeout: float = DEFAULT_TIMEOUT_SEC
@@ -648,6 +657,7 @@ class Client(
         if self.org:
             h[ORG_HEADER] = self.org
         if self.workspace:
+            # Omit blank: broker binds org root-default (never invent workspaces[0]).
             h[WORKSPACE_HEADER] = self.workspace
         if self.department:
             h[DEPARTMENT_HEADER] = self.department
@@ -740,7 +750,9 @@ def connect_from_env(environ: Optional[Mapping[str, str]] = None) -> Client:
       ``IOMESH_URL`` — broker base URL (http/https)
 
     Optional:
-      ``IOMESH_TENANT``, ``IOMESH_ORG``, ``IOMESH_WORKSPACE``, ``IOMESH_DEPARTMENT``
+      ``IOMESH_TENANT``, ``IOMESH_ORG`` (hosted shape ``org_``+cuid2),
+      ``IOMESH_WORKSPACE`` (hosted shape ``ws_``+cuid2; omit blank = broker
+      root-default, never invent ``workspaces[0]``), ``IOMESH_DEPARTMENT``
       ``IOMESH_BEARER_TOKEN`` or ``IOMESH_TOKEN`` (bearer; BEARER_TOKEN wins if both set)
       ``IOMESH_TIMEOUT`` — request timeout seconds (float; default 30)
       ``IOMESH_REQUIRE_ORG`` — ``1``/``true``/``yes``/``on`` fail-closes catalog/consume

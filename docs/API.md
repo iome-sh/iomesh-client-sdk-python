@@ -17,14 +17,15 @@ For the future 1.0 checklist (not met yet), see [1.0-bar.md](1.0-bar.md).
 | Symbol | Kind | Notes |
 |--------|------|--------|
 | `connect(options: ConnectOptions) -> Client` | factory | No network I/O |
-| `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org/workspace/department/token/timeout; `IOMESH_REQUIRE_ORG` fail-closes catalog/consume when org is empty |
-| `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org`, `workspace`, `bearer_token`, `user_agent`, `require_org`, `department` |
+| `connect_from_env(environ=None) -> Client` | factory | `IOMESH_URL` required; optional tenant/org (`org_`+cuid2)/workspace (`ws_`+cuid2; omit blank = root-default)/department/token/timeout; `IOMESH_REQUIRE_ORG` fail-closes catalog/consume when org is empty |
+| `ConnectOptions` | dataclass | `url`, `timeout`, `tenant`, `org` (`org_`+cuid2), `workspace` (`ws_`+cuid2; omit blank = root-default), `bearer_token`, `user_agent`, `require_org`, `department` |
 | `Client` | class | HTTP plane; mixins for KV, memory, metering, catalog, policy, context, liveview, status |
 | `VERSION` / `__version__` | str | e.g. `0.11.0` |
 | `ClientError` / `APIError` | exceptions | Transport / non-2xx |
 
-**Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org`, `X-IOMesh-Workspace`, `X-IOMesh-Department`; optional `Authorization: Bearer …`  
-`ConnectOptions.org` / `IOMESH_ORG` is sent as `X-IOMesh-Org` on every request when set. Omitting org leaves isolation to the broker: local/dev may mix shared-stream reads; hosted brokers may reject catalog/consume. `require_org` / `IOMESH_REQUIRE_ORG=1` raises `ClientError` before the request. No library default org.  
+**Headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org` (`org_`+cuid2), `X-IOMesh-Workspace` (`ws_`+cuid2), `X-IOMesh-Department`; optional `Authorization: Bearer …`  
+`ConnectOptions.org` / `IOMESH_ORG` is sent as `X-IOMesh-Org` on every request when set. Hosted public ids are **`org_`+cuid2** (control-plane minted, opaque — not a display-name slug). Omitting org leaves isolation to the broker: local/dev may mix shared-stream reads; hosted brokers may reject catalog/consume. `require_org` / `IOMESH_REQUIRE_ORG=1` raises `ClientError` before the request. No library default org. This client does not mint or validate the cuid2 shape.  
+`ConnectOptions.workspace` / `IOMESH_WORKSPACE` is sent as `X-IOMesh-Workspace` when set. Hosted public ids are **`ws_`+cuid2**. **Omit a blank workspace** so the broker binds the org **root-default**. The client never invents `workspaces[0]` (creation-order first row is not the root bind).  
 `ConnectOptions.department` / `IOMESH_DEPARTMENT` is sent as `X-IOMesh-Department` when set and omitted when empty.  
 **User-Agent:** `iomesh-client-sdk-python/<VERSION>`
 
