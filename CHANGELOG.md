@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Docs** — polish README and release notes: memory helpers described as local sidecar HTTP with optional sync; a mesh-broker URL may 404 retrieve.
+- **Docs** — README for OSS newcomers: short hero and TOC, Status (link CHANGELOG), heartbeat publish example, env table, docs/API.md. Install remains git/source (not live PyPI).
 
 ## [0.11.1] — 2026-09-10
 
