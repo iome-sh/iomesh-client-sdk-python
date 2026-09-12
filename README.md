@@ -8,7 +8,7 @@ Official **Python client SDK** for the [I/O Mesh](https://iome.sh) broker (HTTP 
 
 Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` streams: connectors and services emit org-tool events; agents and workers consume them via durable pull. Public lexicon is **heartbeat / pulse** only.
 
-This repository is **MIT edge client code** only — not free mesh control-plane access, not a freemium hosted palace, and not product Memory GA. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
+This repository is **MIT edge client code** only — not free mesh control-plane access. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
 | Capability (v0.10) | Notes |
 |--------------------|--------|
@@ -17,7 +17,7 @@ This repository is **MIT edge client code** only — not free mesh control-plane
 | Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
 | Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64; **ack is served**; nack is a client helper (serving broker may 404). See `examples/pull_loop.py` |
 | **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
-| **Memory helpers** | Edge publish + optional sidecar HTTP. `dual_write_memory_turn` (**OFF** default). Local memory tools run on the operator machine. **Not Memory GA.** |
+| **Memory helpers** | Edge publish plus optional local sidecar HTTP. `dual_write_memory_turn` defaults to async-only (`sync=False`). Local memory tools run on the operator machine. A mesh-broker URL may 404 retrieve. |
 | **Metering** | `emit_dept_event` / `emit_llm_call` → stream `dept` (org heartbeat / ops pulse) |
 | **Liveview / registry** | `register_processor` (409 = success) · `list_live_views(tenant_id)` — explicit errors, not fail-open |
 | **Catalog** | `list_catalog` / `get_catalog_product` — **data-products** cascade (mesh `/v1` may 404; portal `/v17`/`/v16`); fail-open. Knowledge **Beta**. Listing ≠ Connected. |
@@ -43,7 +43,7 @@ Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh
 See **[docs/WRAP_UP.md](docs/WRAP_UP.md)** for the 0.1–0.10 summary, install paths (git / Release assets / local wheel — **not** live PyPI), and known limitations.
 
 - Current public surface: **v0.11.1** (minor: opt-in `X-IOMesh-Department` / `IOMESH_DEPARTMENT`; `require_org` was **v0.10.3**)  
-- **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) is met** — **v0.10 does not invent or declare 1.0**
+- **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) is met** — current surface is **v0.11.1** (Beta / pre-1.0)
 
 ## Requirements
 
@@ -133,7 +133,7 @@ Needs a local or stage broker. Running the example locally is not a production r
 
 ## Metering — dept.* heartbeat / pulse
 
-Emit structured organizational heartbeats (ops pulse) on stream `dept`. Public lexicon is **heartbeat / pulse** only — not freemium palace metering GA.
+Emit structured organizational heartbeats (ops pulse) on stream `dept`. Public lexicon is **heartbeat / pulse** only.
 
 ```python
 from iomeshclient import ConnectOptions, LLMCallEvent, connect
@@ -180,27 +180,27 @@ keys = nc.list_keys("agent-state", prefix="worker")
 nc.delete("agent-state", "worker-1.checkpoint")
 ```
 
-## Memory helpers (dual_write OFF by default)
+## Memory helpers
 
-Async local-primary path publishes to `MEMORY_INGEST`. **dual_write is OFF by default** — `sync=False` means no sync sidecar call.
+Async local-primary path publishes to `MEMORY_INGEST`. Optional sidecar sync is off unless you pass `sync=True`. Local memory HTTP runs on the operator machine; a mesh-broker URL may 404 retrieve.
 
 ```python
 from iomeshclient import MemoryEnvelope, MemoryRecallRequest
 
 env = MemoryEnvelope(role="user", content="lease rotation due Q3", session_id="sess-1")
 
-# Async only (default dual_write OFF)
+# Async only (default: no sidecar sync)
 res = nc.dual_write_memory_turn("dept.research", env)
 print(res.async_ack.seq)
 
-# Optional audit dual-write (fail-open on sync errors)
+# Optional sidecar sync (fail-open on sync errors)
 res = nc.dual_write_memory_turn("dept.research", env, sync=True)
 if res.sync_err:
     print("sync failed open:", res.sync_err)
 elif res.sync:
     print("sync memory_id", res.sync.memory_id)
 
-# Async MEMORY_RPC recall (edge publish only — not invent Memory GA)
+# Async MEMORY_RPC recall (edge publish only)
 ack = nc.request_memory_recall("dept.research", "lease notes", limit=8)
 # optional session_id correlation:
 ack = nc.request_memory_recall_full(
@@ -217,7 +217,7 @@ print(ack.stream, ack.seq, ack.subject)
 ### Related (multi-hop lite) + ops digest
 
 ```python
-# Multi-hop lite · not full graph RAG · not Memory GA
+# Multi-hop lite · not full graph RAG
 related = nc.retrieve_memory_related(
     "dept.research",
     seed_entity="person:alice",
@@ -227,16 +227,14 @@ related = nc.retrieve_memory_related(
 for hit in related.memories:
     print(hit.id, hit.hop_distance, hit.summary)
 
-# Ops heartbeat digest (ops horizon framing; knowledge/analytical Beta; not a Memory Ops Pack)
+# Ops heartbeat digest (ops horizon framing; knowledge/analytical Beta)
 digest = nc.export_ops_digest("dept.ops", window="day", horizon="ops")
 print(digest.window, len(digest.patterns), digest.honesty)
 ```
 
-Honesty: not freemium palace · not product Memory GA · not control-plane GA · dual_write OFF elsewhere.
-
 ## Catalog (fail-open)
 
-Discover governed **data products** (not the integrations catalog). Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). On current serving HTTP, mesh `/v1/catalog/*` is not registered (404 → next). Soft failures return empty `CatalogResult` with `source=fail-open` — not control-plane GA. Knowledge layer is **Beta**. Listing ≠ Connected. This wrapper does not expose webhook URLs or OAuth install.
+Discover governed **data products** (not the integrations catalog). Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). On current serving HTTP, mesh `/v1/catalog/*` is not registered (404 → next). Soft failures return empty `CatalogResult` with `source=fail-open`. Knowledge layer is **Beta**. Listing ≠ Connected. This wrapper does not expose webhook URLs or OAuth install.
 
 ```python
 from iomeshclient import format_catalog, format_product_detail
@@ -285,7 +283,7 @@ snip = nc.context_snippet("sdk demo", workspace=".")
 
 ## Format helpers + connection status
 
-Operator diagnostics (not product GA) — pure string views (no network) plus a dual health/ready probe snapshot:
+Operator diagnostics — pure string views (no network) plus a dual health/ready probe snapshot:
 
 ```python
 from iomeshclient import (
@@ -404,7 +402,7 @@ export IOMESH_ORG=org_<cuid2>   # CP-minted X-IOMesh-Org (not a display-name slu
 IOMESH_PUBLISH=1 python examples/pull_loop.py
 ```
 
-Needs a local or stage broker. dual_write is not claimed.
+Needs a local or stage broker.
 
 ## Health / wait_ready / connection_status
 
@@ -421,17 +419,17 @@ status = nc.connection_status()
 print(status.result, status.health_ms, status.ready_ms)
 ```
 
-## Honesty / non-claims
+## Notes
 
-- **MIT edge client only** — not freemium palace access, not control-plane GA.
+- **MIT edge client only** — not hosted control-plane access.
 - **Beta / pre-1.0** — APIs may change before 1.0.
-- **No Memory GA invent** — memory helpers are edge/async + optional fail-open sync; related is multi-hop **lite**. Local memory HTTP runs on the **operator machine** (sidecar). A mesh-broker URL is not Memory GA (may 404 or return `status=accepted` + `note`).
-- **dual_write OFF by default** — `dual_write_memory_turn(..., sync=False)`; enable explicitly for audit path only.
+- **Memory helpers** — edge publish plus optional fail-open sidecar sync; related is multi-hop **lite**. Local memory HTTP runs on the **operator machine**. A mesh-broker URL may 404 retrieve (or return `status=accepted` + `note`).
+- **Optional sidecar sync** — `dual_write_memory_turn(..., sync=False)` by default; pass `sync=True` for the audit path.
 - **Catalog is data-products** — Knowledge **Beta**. Listing ≠ Connected. Not webhook/OAuth wrap. Mesh `/v1/catalog/*` may 404; live list is portal `/v17` (and `/v16`).
-- **Nack** — client helper only; serving broker registers ack. A 404 is honest. `IOMESH_NACK=1` in examples is a client helper demo.
+- **Nack** — client helper only; serving broker registers ack. A 404 is expected until the route exists. `IOMESH_NACK=1` in examples is a client helper demo.
 - **Catalog / policy / context fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
-- **Formatters / connection status** — operator diagnostics only, not product GA surfaces.
-- **Liveview / registry** — edge HTTP helpers only; **not** invent liveview product GA or control-plane GA.
+- **Formatters / connection status** — operator diagnostics only.
+- **Liveview / registry** — edge HTTP helpers for processor register and live-view list.
 - **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
 - **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
 
@@ -439,7 +437,7 @@ print(status.result, status.health_ms, status.ready_ms)
 
 See [docs/WRAP_UP.md](docs/WRAP_UP.md):
 
-- **PyPI** — package is ready; a live upload needs `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)). Do not invent a published package.
+- **PyPI** — package is ready; a live upload needs `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)).
 - **Kafka consumer** — Produce subset ships; full consumer/admin is not in scope yet.
 - **HTTP `/nack`** — helper kept for Go parity; serving broker does not register the route.
 - **1.0** — only when [docs/1.0-bar.md](docs/1.0-bar.md) is met; **0.10 is not 1.0**.

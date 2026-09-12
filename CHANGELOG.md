@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs** — polish README and release notes: memory helpers described as local sidecar HTTP with optional sync; a mesh-broker URL may 404 retrieve.
+
 ## [0.11.1] — 2026-09-10
 
 Patch: org_/ws_+cuid2 shapes + omit-blank workspace = root-default. Never invent workspaces[0]. Catalog ≠ Connected · dual_write OFF · Beta / pre-1.0.
