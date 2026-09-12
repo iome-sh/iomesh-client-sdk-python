@@ -2,61 +2,50 @@
 
 [![CI](https://github.com/iome-sh/iomesh-client-sdk-python/actions/workflows/ci.yml/badge.svg)](https://github.com/iome-sh/iomesh-client-sdk-python/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![PyPI status](https://img.shields.io/badge/status-Beta%20pre--1.0-yellow.svg)](#status)
+[![GitHub release](https://img.shields.io/github/v/release/iome-sh/iomesh-client-sdk-python)](https://github.com/iome-sh/iomesh-client-sdk-python/releases/latest)
+[![Status](https://img.shields.io/badge/status-Beta%20pre--1.0-yellow.svg)](#status)
 
-Official **Python client SDK** for the [I/O Mesh](https://iome.sh) broker (HTTP plane + Kafka Produce subset).
+Official **Python client** for the [I/O Mesh](https://iome.sh) broker: HTTP publish/pull, streams, KV, and a Kafka Produce subset. **MIT**. **Beta / pre-1.0**. From [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
 
-Publish and pull **organizational heartbeats** (ops **pulse**) on `dept.*` streams: connectors and services emit org-tool events; agents and workers consume them via durable pull. Public lexicon is **heartbeat / pulse** only.
+Connectors and services publish **organizational heartbeats** (ops **pulse**) on `dept.*` streams; agents and workers consume them with durable pull.
 
-This repository is **MIT edge client code** only — not free mesh control-plane access. Surfaces are **Beta** / pre-1.0. Official open-source tooling from [IOMesh](https://iome.sh) (**IOMesh Technology Ltd.**).
+This repository is **edge client code** only — not hosted control-plane access. There is **no live PyPI package** yet; install from git or source.
 
-| Capability (v0.10) | Notes |
-|--------------------|--------|
-| `connect` / **`connect_from_env`** + tenant / org / workspace / department / bearer headers | No network I/O on connect; env reads `IOMESH_*` |
-| `publish` (base64 payload) | `POST /v1/streams/{stream}/publish` → `PubAck` |
-| Streams: create / ensure / get / list / delete / **list_stream_messages** | 409 conflict → best-effort GET; replay `GET …/messages` |
-| Consumers: create / ensure / fetch / ack / nack / pull_subscribe | Fetch decodes base64; **ack is served**; nack is a client helper (serving broker may 404). See `examples/pull_loop.py` |
-| **KV** create / put / get / delete / list_keys | 409 create → name-only `BucketInfo` |
-| **Memory helpers** | Edge publish plus optional local sidecar HTTP. `dual_write_memory_turn` defaults to async-only (`sync=False`). Local memory tools run on the operator machine. A mesh-broker URL may 404 retrieve. |
-| **Metering** | `emit_dept_event` / `emit_llm_call` → stream `dept` (org heartbeat / ops pulse) |
-| **Liveview / registry** | `register_processor` (409 = success) · `list_live_views(tenant_id)` — explicit errors, not fail-open |
-| **Catalog** | `list_catalog` / `get_catalog_product` — **data-products** cascade (mesh `/v1` may 404; portal `/v17`/`/v16`); fail-open. Knowledge **Beta**. Listing ≠ Connected. |
-| **Policy evaluate** | `evaluate_policy` → `PolicyDecision` (`should_block_tool` / `summary`); fail-open |
-| **Context** | `query_context` / `context_snippet` / `format_context_snippet` — fail-open prompt injection |
-| **Format + connection status** | streams / KV / msg / consumer formatters; `connection_status` / `format_connection_status` |
-| **connectorsdk** | Local HMAC + subjects + envelope (GitHub-style). **Not** OAuth, not Connected, not mesh connector HTTP. |
-| **Kafka Produce subset** | `KafkaClient(addr).produce(topic, partition, key, value) → offset` |
-| Health / ready / **wait_ready** | `GET /health`, `GET /ready` then `/readyz`; poll until ready |
-| **Typing** | PEP 561 `py.typed` in package/wheel (gradual typing; full mypy CI optional) |
-| **Docs** | [docs/API.md](docs/API.md) surface inventory · [docs/1.0-bar.md](docs/1.0-bar.md) future 1.0 checklist (**not 1.0 yet**) · [docs/WRAP_UP.md](docs/WRAP_UP.md) 0.x status |
+## Contents
 
-Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go) + [`kafka`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/kafka) + [`connectorsdk`](https://github.com/iome-sh/iomesh-client-sdk-go/tree/main/connectorsdk).
-
-> **Package:** `iomeshclient`  
-> **Wire headers:** `X-IOMesh-Tenant`, `X-IOMesh-Org` (`org_`+cuid2), `X-IOMesh-Workspace` (`ws_`+cuid2; omit blank = broker root-default), `X-IOMesh-Department`  
-> **User-Agent:** `iomesh-client-sdk-python/0.11.1`  
-> **Status:** public OSS **v0.11.1** (pre-1.0, **Beta** — not 1.0)  
-> **Go SDK:** [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go)
+- [Status](#status)
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Environment](#environment)
+- [Capabilities](#capabilities)
+- [API](#api)
+- [Examples](#examples)
+- [License](#license)
 
 ## Status
 
-See **[docs/WRAP_UP.md](docs/WRAP_UP.md)** for the 0.1–0.10 summary, install paths (git / Release assets / local wheel — **not** live PyPI), and known limitations.
+Public OSS **[v0.11.1](https://github.com/iome-sh/iomesh-client-sdk-python/releases/tag/v0.11.1)** — **Beta / pre-1.0**. APIs may change before 1.0. See [CHANGELOG.md](CHANGELOG.md) and [docs/WRAP_UP.md](docs/WRAP_UP.md).
 
-- Current public surface: **v0.11.1** (minor: opt-in `X-IOMesh-Department` / `IOMESH_DEPARTMENT`; `require_org` was **v0.10.3**)  
-- **1.0 only when [docs/1.0-bar.md](docs/1.0-bar.md) is met** — current surface is **v0.11.1** (Beta / pre-1.0)
+- **MIT edge client** — not free mesh control-plane access.
+- **Catalog list ≠ Connected.** `list_catalog` is data-product discovery (Knowledge stays Beta), not a connector install or OAuth wrap.
+- **Memory helpers** talk to a **local sidecar**. `dual_write_memory_turn` is async-only unless you pass `sync=True`. A mesh-broker URL may 404 retrieve.
+- **Nack** is a client helper; the serving broker may 404 until the route exists (ack is served).
+- **1.0** only when [docs/1.0-bar.md](docs/1.0-bar.md) is met.
+
+Package `iomeshclient` · User-Agent `iomesh-client-sdk-python/0.11.1`. Parity target: the Go package [`iomeshclient`](https://github.com/iome-sh/iomesh-client-sdk-go).
 
 ## Requirements
 
 - Python **3.10+**
 - Network access to an I/O Mesh broker (or local foundation)
-- **stdlib only** for the client (`urllib`, `socket`); no third-party runtime deps
+- **stdlib only** at runtime (`urllib`, `socket`); no third-party runtime deps
 
 ## Install
 
-From source (until a PyPI release is published — see [RELEASING.md](RELEASING.md)):
+From git or a local clone (until a PyPI release is published — see [RELEASING.md](RELEASING.md)):
 
 ```bash
-pip install -e "git+https://github.com/iome-sh/iomesh-client-sdk-python.git#egg=iomeshclient"
+pip install "git+https://github.com/iome-sh/iomesh-client-sdk-python.git#egg=iomeshclient"
 # or clone:
 git clone https://github.com/iome-sh/iomesh-client-sdk-python.git
 cd iomesh-client-sdk-python
@@ -69,17 +58,13 @@ Dev extras (tests / ruff):
 pip install -e ".[dev]"
 ```
 
-## Quick start — publish an org heartbeat
+## Quick start
 
-Connect, ensure a stream under `dept.*`, and publish a single organizational heartbeat (ops pulse). Agents and workers pull the same subjects as durable consumers.
+Connect, ensure a `dept.*` stream, and publish one organizational heartbeat. Needs a reachable broker.
 
 ```python
-from iomeshclient import ConnectOptions, StreamConfig, connect, connect_from_env
+from iomeshclient import ConnectOptions, StreamConfig, connect
 
-# Explicit options…
-# Hosted public ids are CP-minted: X-IOMesh-Org = org_+cuid2, X-IOMesh-Workspace = ws_+cuid2.
-# They are not display-name slugs (do not invent acme-org / ws_default as if minted).
-# Omit workspace (empty) so the broker binds the org root-default — never invent workspaces[0].
 nc = connect(
     ConnectOptions(
         url="http://127.0.0.1:8422",
@@ -89,22 +74,13 @@ nc = connect(
         department="engineering",
     )
 )
-# …or from env: IOMESH_URL (required), optional IOMESH_TENANT / IOMESH_ORG /
-# IOMESH_WORKSPACE / IOMESH_DEPARTMENT / IOMESH_BEARER_TOKEN|IOMESH_TOKEN /
-# IOMESH_TIMEOUT / IOMESH_REQUIRE_ORG=1 (fail-closed catalog/consume when
-# IOMESH_ORG is empty)
-# nc = connect_from_env()
 
 info = nc.create_stream(
-    StreamConfig(
-        name="EVENTS",
-        subjects=["dept.engineering.events.>"],
-    )
+    StreamConfig(name="EVENTS", subjects=["dept.engineering.events.>"])
 )
 if info is not None:
     print(f"stream={info.name} subjects={info.subjects}")
 
-# Organizational heartbeat (ops pulse) — public lexicon: heartbeat / pulse only.
 ack = nc.publish(
     "EVENTS",
     "dept.engineering.events.demo",
@@ -113,27 +89,64 @@ ack = nc.publish(
 print(f"published seq={ack.seq} subject={ack.subject} partition={ack.partition}")
 ```
 
+Omit a blank workspace (`workspace=""` / unset `IOMESH_WORKSPACE`) so the broker binds the org **root-default**. This client never invents `workspaces[0]` (creation-order first row is not the root bind). Hosted public ids are `org_`+cuid2 and `ws_`+cuid2 (control-plane minted, opaque — not display-name slugs). Do not invent `acme-org` / `ws_default` as if minted.
+
 Runnable framing (publish + optional pull): [`examples/org_heartbeat_publish.py`](examples/org_heartbeat_publish.py).
 
 ```bash
 export IOMESH_URL=http://127.0.0.1:8422
-export IOMESH_ORG=org_<cuid2>   # CP-minted X-IOMesh-Org (not a display-name slug)
-# omit IOMESH_WORKSPACE → broker binds org root-default (never invent workspaces[0])
+export IOMESH_ORG=org_<cuid2>   # CP-minted X-IOMesh-Org
 python examples/org_heartbeat_publish.py
 IOMESH_PULL=1 python examples/org_heartbeat_publish.py
 ```
 
-`ConnectOptions.org` / `IOMESH_ORG` maps to `X-IOMesh-Org`. Hosted public ids are **`org_`+cuid2** (control-plane minted, opaque — not a display-name slug). Hosted brokers isolate catalog and durable pull by that header; omitting it can mix shared-stream reads (or the broker may reject the request). Local/dev brokers still fail-open when org is empty. Set `IOMESH_REQUIRE_ORG=1` (or `ConnectOptions.require_org=True`) so the client raises `ClientError` instead of sending an unscoped fetch. The library does **not** invent a default org and does **not** mint or validate the cuid2 shape.
+## Environment
 
-`ConnectOptions.workspace` / `IOMESH_WORKSPACE` maps to `X-IOMesh-Workspace` when set. Hosted public ids are **`ws_`+cuid2**. **Omit a blank workspace** so the broker binds the org **root-default**. This client never invents `workspaces[0]` (creation-order first row is not the root bind). A child workspace is an explicit `ws_`+cuid2 you already have — not a slug like `ws_default`.
+`connect_from_env()` reads process env. `IOMESH_URL` is required; the rest are optional. No network I/O on connect.
 
-`ConnectOptions.department` / `IOMESH_DEPARTMENT` maps to `X-IOMesh-Department` when set and is omitted when empty. Connector `publish_headers` uses the same wire name.
+| Variable | Header / effect |
+|----------|-----------------|
+| `IOMESH_URL` | Broker base (`http`/`https`) |
+| `IOMESH_TENANT` | `X-IOMesh-Tenant` |
+| `IOMESH_ORG` | `X-IOMesh-Org` — hosted: CP-minted `org_`+cuid2 |
+| `IOMESH_WORKSPACE` | `X-IOMesh-Workspace` — omit blank = broker root-default |
+| `IOMESH_DEPARTMENT` | `X-IOMesh-Department` (omit when empty) |
+| `IOMESH_BEARER_TOKEN` or `IOMESH_TOKEN` | `Authorization: Bearer` (`BEARER_TOKEN` wins if both set) |
+| `IOMESH_TIMEOUT` | Request timeout in seconds (float; default 30) |
+| `IOMESH_REQUIRE_ORG` | `1`/`true`/`yes`/`on` — fail-closed catalog/consume when org is empty |
 
-Needs a local or stage broker. Running the example locally is not a production rollout.
+```python
+from iomeshclient import connect_from_env
 
-## Metering — dept.* heartbeat / pulse
+nc = connect_from_env()
+```
 
-Emit structured organizational heartbeats (ops pulse) on stream `dept`. Public lexicon is **heartbeat / pulse** only.
+Hosted brokers isolate catalog and durable pull by `X-IOMesh-Org`. Omitting it can mix shared-stream reads (or the broker may reject). Local/dev brokers still fail-open when org is empty. The library does **not** invent a default org and does **not** mint or validate the cuid2 shape.
+
+## Capabilities
+
+| Capability | Notes |
+|------------|--------|
+| `connect` / `connect_from_env` | No network I/O; env reads `IOMESH_*` |
+| `publish` | `POST /v1/streams/{stream}/publish` → `PubAck` |
+| Streams / consumers | Create, list, replay, durable pull; **ack is served**; nack may 404 |
+| KV | Create / put / get / delete / list_keys; 409 create → name-only |
+| Memory helpers | Edge publish + optional local sidecar HTTP |
+| Metering | `emit_dept_event` / `emit_llm_call` → stream `dept` |
+| Liveview / registry | `register_processor` (409 = success) · `list_live_views` |
+| Catalog | Data-products cascade; fail-open |
+| Policy / context | Fail-open evaluate + prompt snippet |
+| Format + `connection_status` | Operator string views; dual health/ready snapshot |
+| `connectorsdk` | Local HMAC + subjects + envelope; not OAuth |
+| Kafka Produce subset | `KafkaClient(addr).produce(...)` |
+| Health / `wait_ready` | `GET /health`, `/ready` then `/readyz` |
+| Typing | PEP 561 `py.typed` (gradual) |
+
+## API
+
+Surface inventory: **[docs/API.md](docs/API.md)**. 0.x notes: [docs/WRAP_UP.md](docs/WRAP_UP.md). Future 1.0 checklist: [docs/1.0-bar.md](docs/1.0-bar.md).
+
+### Metering
 
 ```python
 from iomeshclient import ConnectOptions, LLMCallEvent, connect
@@ -142,13 +155,11 @@ nc = connect(
     ConnectOptions(
         url="http://127.0.0.1:8422",
         tenant="dept.engineering",
-        org="org_<cuid2>",  # CP-minted; not a display-name slug
-        workspace="",       # omit = broker root-default; never invent workspaces[0]
+        org="org_<cuid2>",
+        workspace="",
         department="engineering",
     )
 )
-
-# Remote metering pulse — type dept.agent.llm_call → POST /v1/streams/dept/publish
 ack = nc.emit_llm_call(
     LLMCallEvent(
         tenant="dept.engineering",
@@ -165,203 +176,105 @@ ack = nc.emit_llm_call(
 print(ack.seq, ack.subject)
 ```
 
-Runnable framing: [`examples/emit_llm_call.py`](examples/emit_llm_call.py) (needs broker).
+Runnable: [`examples/emit_llm_call.py`](examples/emit_llm_call.py).
 
-## KV
+### KV
 
 ```python
 from iomeshclient import CreateBucketConfig
 
-nc.create_bucket("agent-state", CreateBucketConfig(history=5))  # 409 → name-only OK
+nc.create_bucket("agent-state", CreateBucketConfig(history=5))
 nc.put("agent-state", "worker-1.checkpoint", b"seq=42")
 entry = nc.get("agent-state", "worker-1.checkpoint")
 print(entry.revision, entry.value)
-keys = nc.list_keys("agent-state", prefix="worker")
-nc.delete("agent-state", "worker-1.checkpoint")
 ```
 
-## Memory helpers
+### Memory
 
-Async local-primary path publishes to `MEMORY_INGEST`. Optional sidecar sync is off unless you pass `sync=True`. Local memory HTTP runs on the operator machine; a mesh-broker URL may 404 retrieve.
+Async local-primary path publishes to `MEMORY_INGEST`. Pass `sync=True` for an optional sidecar write. Local memory HTTP runs on the operator machine.
 
 ```python
 from iomeshclient import MemoryEnvelope, MemoryRecallRequest
 
 env = MemoryEnvelope(role="user", content="lease rotation due Q3", session_id="sess-1")
-
-# Async only (default: no sidecar sync)
-res = nc.dual_write_memory_turn("dept.research", env)
+res = nc.dual_write_memory_turn("dept.research", env)  # sync=False
 print(res.async_ack.seq)
 
-# Optional sidecar sync (fail-open on sync errors)
-res = nc.dual_write_memory_turn("dept.research", env, sync=True)
-if res.sync_err:
-    print("sync failed open:", res.sync_err)
-elif res.sync:
-    print("sync memory_id", res.sync.memory_id)
-
-# Async MEMORY_RPC recall (edge publish only)
 ack = nc.request_memory_recall("dept.research", "lease notes", limit=8)
-# optional session_id correlation:
-ack = nc.request_memory_recall_full(
-    MemoryRecallRequest(
-        tenant_id="dept.research",
-        query="lease notes",
-        limit=8,
-        session_id="sess-1",
-    )
-)
 print(ack.stream, ack.seq, ack.subject)
 ```
 
-### Related (multi-hop lite) + ops digest
+Related is multi-hop **lite** (`retrieve_memory_related`). `export_ops_digest` is an ops heartbeat digest.
+
+### Catalog
+
+Discover governed **data products**. Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). Soft failures return empty `CatalogResult` with `source=fail-open`. This wrapper does not expose webhook URLs or OAuth install.
 
 ```python
-# Multi-hop lite · not full graph RAG
-related = nc.retrieve_memory_related(
-    "dept.research",
-    seed_entity="person:alice",
-    max_hops=2,
-    limit=10,
-)
-for hit in related.memories:
-    print(hit.id, hit.hop_distance, hit.summary)
+from iomeshclient import format_catalog
 
-# Ops heartbeat digest (ops horizon framing; knowledge/analytical Beta)
-digest = nc.export_ops_digest("dept.ops", window="day", horizon="ops")
-print(digest.window, len(digest.patterns), digest.honesty)
-```
-
-## Catalog (fail-open)
-
-Discover governed **data products** (not the integrations catalog). Path cascade matches Go (`/v1/catalog/*` then `/v17`/`/v16` portal). On current serving HTTP, mesh `/v1/catalog/*` is not registered (404 → next). Soft failures return empty `CatalogResult` with `source=fail-open`. Knowledge layer is **Beta**. Listing ≠ Connected. This wrapper does not expose webhook URLs or OAuth install.
-
-```python
-from iomeshclient import format_catalog, format_product_detail
-
-res = nc.list_catalog("")  # optional query / mesh_layer filter
+res = nc.list_catalog("")
 print(format_catalog(res))
-for p in res.products:
-    print(p.id, p.layer, p.subject)
-
-product, meta = nc.get_catalog_product("ops-incidents")
-print(format_product_detail(product, meta))
 ```
 
-## Policy evaluate (fail-open)
-
-Remote tool policy (`POST /v1/policy/evaluate`). Mode `off` skips the network. Enforce only blocks when mesh explicitly denies (`should_block_tool`).
+### Policy and context
 
 ```python
-from iomeshclient import POLICY_ENFORCE, POLICY_ADVISORY, PolicyInput
+from iomeshclient import POLICY_ENFORCE, PolicyInput, format_context_snippet
 
-dec = nc.evaluate_policy(
-    PolicyInput(tool="run_shell", mode=POLICY_ENFORCE)
-)
+dec = nc.evaluate_policy(PolicyInput(tool="run_shell", mode=POLICY_ENFORCE))
 if dec.should_block_tool():
     print("blocked:", dec.summary())
-else:
-    print(dec.summary())  # allow / advisory deny still fail-open for tools
-```
-
-Modes: `off` (default) · `advisory` · `enforce`. Missing broker path → `source=unavailable` or `fail-open` (Allow true).
-
-## Context (fail-open)
-
-Agent prompt-injection helper (`POST /v1/context/query`). Soft failures return empty text — never raise for missing context plane.
-
-```python
-from iomeshclient import format_context_snippet
 
 res = nc.query_context("incidents", workspace="ws1", include_lineage=True)
-print(res.text, res.ok, res.source)
 print(format_context_snippet(res))
-
-# Always include_lineage=true; empty string on fail-open
-snip = nc.context_snippet("sdk demo", workspace=".")
 ```
 
-## Format helpers + connection status
+Modes: `off` (default) · `advisory` · `enforce`. Missing broker path → fail-open (Allow true). Context soft-fails to empty text.
 
-Operator diagnostics — pure string views (no network) plus a dual health/ready probe snapshot:
+### Format helpers + connection status
 
 ```python
-from iomeshclient import (
-    format_bucket_info,
-    format_connection_status,
-    format_consumer_info,
-    format_kv_entry,
-    format_kv_keys,
-    format_msg,
-    format_msgs,
-    format_put_result,
-    format_stream_detail,
-    format_streams,
-)
+from iomeshclient import format_connection_status, format_streams
 
 print(format_streams(nc.list_streams()))
-print(format_stream_detail(nc.get_stream("EVENTS")))
-
-# KV operator views (after put / get / list_keys / ensure_bucket)
-print(format_put_result(nc.put("agent-state", "worker-1.checkpoint", b"seq=42")))
-print(format_kv_entry(nc.get("agent-state", "worker-1.checkpoint")))
-print(format_kv_keys("agent-state", nc.list_keys("agent-state", "worker-")))
-print(format_bucket_info(nc.ensure_bucket("agent-state")))
-
-# Pull batch: empty-batch header is OK (count=0)
-batch = sub.fetch(10)
-print(format_msgs(batch))
-if batch:
-    print(format_msg(batch[0]))
-print(format_consumer_info(sub.info))
-
-status = nc.connection_status()  # health then ready; both always run
-print(format_connection_status(status))
-print(status.result, status.health_ok, status.ready_ok)
+print(format_connection_status(nc.connection_status()))
 ```
 
-Stream replay (explicit discovery — non-2xx raises, not fail-open):
+Stream replay (non-2xx raises):
 
 ```python
 from iomeshclient import ListStreamMessagesOptions
 
-msgs = nc.list_stream_messages(
-    "EVENTS",
-    ListStreamMessagesOptions(from_seq=1, to_seq=0, limit=50),
-)
+msgs = nc.list_stream_messages("EVENTS", ListStreamMessagesOptions(from_seq=1, limit=50))
 for m in msgs:
     print(m.seq, m.subject, m.payload)
 ```
-## Kafka Produce subset
 
-Produce-only mesh Kafka protocol client for integrations / pilots (not a full Kafka consumer):
+### Kafka Produce subset
 
 ```python
 from iomeshclient import KafkaClient
-# or: from iomeshclient.kafka import KafkaClient
 
 with KafkaClient("127.0.0.1:9423") as kc:
     offset = kc.produce("events", 0, None, b'{"hello":"mesh"}')
     print("offset", offset)
 ```
 
-## connectorsdk
+### connectorsdk
 
-Local partner webhook helpers (GitHub-style HMAC + subjects + observation envelope).
-Not mesh connector HTTP, not OAuth, not Connected:
+Local partner webhook helpers (GitHub-style HMAC + subjects + observation envelope). Not mesh connector HTTP, not OAuth:
 
 ```python
 from iomeshclient.connectorsdk import (
-    DEFAULT_HMAC_PREFIX,
-    compute_hmac_sha256,
     normalize_envelope,
     publish_headers,
     subject_for_department,
     verify_hmac,
 )
 
-verify_hmac(secret, body, signature)  # raises on mismatch
-subj = subject_for_department("engineering", "slack")  # dept.engineering.events.slack
+verify_hmac(secret, body, signature)
+subj = subject_for_department("engineering", "slack")
 payload = normalize_envelope(
     "slack", "engineering", "slack",
     external_id="Ev001", event_type="message",
@@ -371,7 +284,7 @@ headers = publish_headers("slack", "engineering", "Ev001", "slack")
 nc.publish("EVENTS", subj, payload, headers=headers)
 ```
 
-## Pull consume
+### Pull consume
 
 ```python
 from iomeshclient import CreateConsumerConfig, PullSubscribeConfig
@@ -383,91 +296,64 @@ nc.create_consumer(
         filter_subject="dept.engineering.events.>",
     )
 )
-
-sub = nc.pull_subscribe(
-    PullSubscribeConfig(stream="EVENTS", consumer="worker-1")
-)
+sub = nc.pull_subscribe(PullSubscribeConfig(stream="EVENTS", consumer="worker-1"))
 for msg in sub.fetch(10, max_wait_ms=5000):
     print(msg.seq, msg.subject, msg.data)
     msg.ack()
 ```
 
-Runnable durable pull loop (fetch + ack, optional publish seed):
-[`examples/pull_loop.py`](examples/pull_loop.py).
+Runnable: [`examples/pull_loop.py`](examples/pull_loop.py).
 
 ```bash
 export IOMESH_URL=http://127.0.0.1:8422
-export IOMESH_ORG=org_<cuid2>   # CP-minted X-IOMesh-Org (not a display-name slug)
-# omit IOMESH_WORKSPACE → broker binds org root-default (never invent workspaces[0])
+export IOMESH_ORG=org_<cuid2>
 IOMESH_PUBLISH=1 python examples/pull_loop.py
 ```
 
-Needs a local or stage broker.
-
-## Health / wait_ready / connection_status
+### Health / wait_ready
 
 ```python
-nc.health()  # GET /health
-nc.ready()   # GET /ready, then /readyz if 404
-
-# Poll until ready (optional health check)
+nc.health()
+nc.ready()
 result = nc.wait_ready(timeout_sec=30.0, interval_sec=0.5, require_health=False)
 print(result.elapsed_sec, result.attempts)
-
-# One-shot dual probe snapshot (operator diagnostics)
-status = nc.connection_status()
-print(status.result, status.health_ms, status.ready_ms)
 ```
 
-## Notes
+## Examples
 
-- **MIT edge client only** — not hosted control-plane access.
-- **Beta / pre-1.0** — APIs may change before 1.0.
-- **Memory helpers** — edge publish plus optional fail-open sidecar sync; related is multi-hop **lite**. Local memory HTTP runs on the **operator machine**. A mesh-broker URL may 404 retrieve (or return `status=accepted` + `note`).
-- **Optional sidecar sync** — `dual_write_memory_turn(..., sync=False)` by default; pass `sync=True` for the audit path.
-- **Catalog is data-products** — Knowledge **Beta**. Listing ≠ Connected. Not webhook/OAuth wrap. Mesh `/v1/catalog/*` may 404; live list is portal `/v17` (and `/v16`).
-- **Nack** — client helper only; serving broker registers ack. A 404 is expected until the route exists. `IOMESH_NACK=1` in examples is a client helper demo.
-- **Catalog / policy / context fail-open** — missing paths and soft errors do not raise; enforce blocks only on explicit mesh deny.
-- **Formatters / connection status** — operator diagnostics only.
-- **Liveview / registry** — edge HTTP helpers for processor register and live-view list.
-- **Kafka Produce subset only** — not a full consumer/admin client; for mesh integrations / pilots.
-- **Requires a broker** — unit tests mock HTTP/TCP; live examples need local/stage mesh.
+| Example | What it shows |
+|---------|----------------|
+| [`examples/org_heartbeat_publish.py`](examples/org_heartbeat_publish.py) | Publish + optional pull of an org heartbeat |
+| [`examples/pull_loop.py`](examples/pull_loop.py) | Durable fetch + ack (optional publish seed) |
+| [`examples/emit_llm_call.py`](examples/emit_llm_call.py) | Metering pulse on stream `dept` |
+
+Needs a local or stage broker. Running an example locally is not a production rollout.
 
 ## Known limitations
 
-See [docs/WRAP_UP.md](docs/WRAP_UP.md):
-
 - **PyPI** — package is ready; a live upload needs `secrets.PYPI_TOKEN` (see [RELEASING.md](RELEASING.md)).
-- **Kafka consumer** — Produce subset ships; full consumer/admin is not in scope yet.
+- **Kafka consumer** — Produce subset only; full consumer/admin is not in scope yet.
 - **HTTP `/nack`** — helper kept for Go parity; serving broker does not register the route.
-- **1.0** — only when [docs/1.0-bar.md](docs/1.0-bar.md) is met; **0.10 is not 1.0**.
-
-## API inventory + 0.x status + 1.0 checklist
-
-- Public surface tables: [docs/API.md](docs/API.md)
-- 0.x status: [docs/WRAP_UP.md](docs/WRAP_UP.md)
-- Future 1.0 checklist (**not 1.0 yet**): [docs/1.0-bar.md](docs/1.0-bar.md)
-
-## Related
-
-| Project | Role |
-|---------|------|
-| [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go) | Official Go client (broader surface) |
-| [iomesh-tui](https://github.com/iome-sh/iomesh-tui) | Agent TUI |
-| [iome.sh](https://iome.sh) | Product home |
+- **1.0** — only when [docs/1.0-bar.md](docs/1.0-bar.md) is met.
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
 python -m pytest -q
-# optional
 ruff check src tests examples
-# optional typing (not required in CI yet — see docs/1.0-bar.md)
-# python -m mypy --follow-imports=skip src/iomeshclient
 ```
 
 Release process: [RELEASING.md](RELEASING.md). See also [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
+## Related
+
+| Project | Role |
+|---------|------|
+| [iomesh-client-sdk-go](https://github.com/iome-sh/iomesh-client-sdk-go) | Official Go client (broader surface) |
+| [docs/API.md](docs/API.md) | Python surface inventory |
+| [iomesh-tui](https://github.com/iome-sh/iomesh-tui) | Agent TUI |
+| [iome.sh](https://iome.sh) | Product home |
 
 ## Contact
 
